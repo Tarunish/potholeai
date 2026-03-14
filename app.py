@@ -892,7 +892,8 @@ function moveDriver(){{
   if(currentStep<routeCoordinates.length-1){{
     var next=routeCoordinates[currentStep+1];
     var bearing=Math.atan2(next.lng-pt.lng,next.lat-pt.lat)*180/Math.PI;
-    driver.setIcon(L.divIcon({{className:'',html:'<div style="font-size:24px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));transform:rotate('+bearing+'deg)">🚗</div>',iconSize:[28,28],iconAnchor:[14,14]}}));
+    var carEmoji = bearing > -90 && bearing < 90 ? '🚗' : '🚗';
+    driver.setIcon(L.divIcon({{className:'',html:'<div style="font-size:24px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6))">🚗</div>',iconSize:[28,28],iconAnchor:[14,14]}}));
   }}
 
   checkPotholeAhead(pt);
