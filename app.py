@@ -606,8 +606,15 @@ Rules:
             for c in all_c:
                 sev = c.get("severity","Minor")
                 risk = "critical" if sev=="Critical" else "medium" if sev=="Moderate" else "low"
-                pothole_data.append({"lat": c["gps"]["lat"], "lng": c["gps"]["lon"], "risk": risk, "location": c["location"]})
-            pothole_json = _json.dumps(pothole_data[:300])
+                pothole_data.append({
+                    "lat": c["gps"]["lat"],
+                    "lng": c["gps"]["lon"],
+                    "risk": risk,
+                    "location": c["location"],
+                    "severity": sev
+                })
+            # Include ALL — critical, medium, low
+            pothole_json = _json.dumps(pothole_data[:500])
 
             nav_html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -928,7 +935,7 @@ function moveDriver(){{
   }}
 
   checkPotholeAhead(pt);
-  if(!isPaused){{currentStep++;moveTimeout=setTimeout(moveDriver,180)}}
+  if(!isPaused){{currentStep++;moveTimeout=setTimeout(moveDriver,60)}}
 }}
 
 // --- Pothole detection ---
