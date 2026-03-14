@@ -190,7 +190,7 @@ if not st.session_state.logged_in:
             background: rgba(8,14,26,0.97);
             border-radius: 20px;
             border: 1px solid rgba(0,212,255,0.15);
-            padding: 44px 40px 36px;
+            padding: 30px 40px 36px;
             text-align: center;
             box-shadow:
                 0 0 80px rgba(0,212,255,0.06),
@@ -217,7 +217,7 @@ if not st.session_state.logged_in:
             box-shadow:
                 0 0 0 6px rgba(0,212,255,0.05),
                 0 0 30px rgba(0,212,255,0.25);
-            margin: 0 auto 20px;
+            margin: 0 auto 10px;
             display: block;
             overflow: hidden;
         }
@@ -228,7 +228,7 @@ if not st.session_state.logged_in:
             font-weight: 900;
             letter-spacing: 2px;
             line-height: 1;
-            margin: 0 0 6px;
+            margin: 0 0 2px;
         }
 
         .login-sub {
@@ -236,13 +236,13 @@ if not st.session_state.logged_in:
             letter-spacing: 3px;
             color: #253545;
             text-transform: uppercase;
-            margin-bottom: 28px;
+            margin-bottom: 10px;
         }
 
         .login-divider {
             height: 1px;
             background: linear-gradient(90deg,transparent,rgba(0,212,255,0.15),transparent);
-            margin-bottom: 24px;
+            margin-bottom: 10px;
         }
 
         .login-hint {
