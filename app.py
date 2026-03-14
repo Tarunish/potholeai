@@ -584,7 +584,7 @@ Rules:
 
     # ── TABS ────────────────────────────────────────────────────────────────
     if role=="Public":
-        tabs=st.tabs(["📸 My Report","📋 Status","🤖 Ask AI"])
+        tabs=st.tabs(["📸 My Report","📋 Status","🗺️ Safe Navigation","🤖 Ask AI"])
         with tabs[0]:
             if st.session_state.detected_img and os.path.exists(st.session_state.detected_img):
                 st.image(Image.open(st.session_state.detected_img),use_container_width=True)
@@ -598,6 +598,287 @@ Rules:
                     · 📋 {c['status']}<br>🔄 Re-scan: {c['re_scan_due']}
                 </div>""",unsafe_allow_html=True)
         with tabs[2]:
+            st.markdown("### 🗺️ Pothole-Aware Navigation")
+            st.caption("Plan your route avoiding critical potholes — 🔴 pothole-prone route vs 🟢 safer route")
+
+            # Build pothole data from live complaints
+            pothole_data = []
+            for c in all_c:
+                risk = "critical" if c["severity"]=="Critical" else "medium" if c["severity"]=="Moderate" else "low"
+                pothole_data.append({
+                    "lat": c["gps"]["lat"],
+                    "lng": c["gps"]["lon"],
+                    "risk": risk,
+                    "location": c["location"]
+                })
+
+            import json as _json
+            pothole_json = _json.dumps(pothole_data)
+
+            nav_html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <style>
+        * {{ box-sizing:border-box; margin:0; padding:0; }}
+        body {{ font-family:'Segoe UI',sans-serif; background:#1a1a2e; }}
+        #map {{ width:100%; height:580px; }}
+        .leaflet-routing-container {{ display:none !important; }}
+        #navPanel {{
+            position:absolute; top:15px; left:15px; z-index:1000;
+            background:rgba(15,20,45,0.97); border-radius:14px; padding:18px;
+            width:270px; box-shadow:0 8px 32px rgba(0,0,0,0.6);
+            border:1px solid rgba(126,200,227,0.15); color:#eee;
+        }}
+        #navPanel h2 {{ font-size:13px; margin-bottom:14px; color:#7ec8e3; letter-spacing:1px; text-transform:uppercase; font-weight:700; }}
+        .field-label {{ font-size:10px; color:#888; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:5px; }}
+        .loc-input {{
+            width:100%; background:rgba(255,255,255,0.06);
+            border:1px solid rgba(255,255,255,0.12); border-radius:8px;
+            padding:9px 11px; color:#fff; font-size:13px;
+            outline:none; margin-bottom:12px; transition:border 0.2s;
+        }}
+        .loc-input:focus {{ border-color:#7ec8e3; }}
+        .sugg-box {{
+            display:none; position:absolute; top:100%; left:0; right:0;
+            z-index:9999; background:#0f1430;
+            border:1px solid rgba(126,200,227,0.2); border-radius:8px;
+            max-height:150px; overflow-y:auto; margin-top:-10px;
+        }}
+        .sugg-box div {{ padding:8px 11px; font-size:12px; color:#bbb; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.04); }}
+        .sugg-box div:hover {{ background:rgba(126,200,227,0.1); color:#fff; }}
+        #startJourneyBtn {{
+            width:100%; padding:11px;
+            background:linear-gradient(135deg,#28a745,#20c997);
+            color:white; border:none; border-radius:8px;
+            font-size:14px; font-weight:700; cursor:pointer; margin-top:4px;
+        }}
+        #startJourneyBtn:hover {{ opacity:0.88; }}
+        #statusBar {{
+            display:none; position:absolute; bottom:22px; left:50%;
+            transform:translateX(-50%); z-index:1000;
+            background:rgba(15,20,45,0.94); color:#eee;
+            padding:10px 24px; border-radius:24px; font-size:13px;
+            border:1px solid rgba(255,255,255,0.08); white-space:nowrap;
+        }}
+        #potholeCard {{
+            display:none; position:fixed; bottom:30px; right:20px; z-index:9000;
+            background:rgba(15,20,45,0.97); border-radius:16px; padding:20px 22px;
+            width:280px; box-shadow:0 10px 40px rgba(0,0,0,0.6);
+            border:1px solid rgba(255,255,255,0.1); color:#eee;
+            animation:slideIn 0.3s ease;
+        }}
+        @keyframes slideIn {{ from {{ transform:translateX(120%); opacity:0; }} to {{ transform:translateX(0); opacity:1; }} }}
+        #potholeCard .risk-badge {{
+            display:inline-block; padding:4px 14px; border-radius:20px;
+            font-size:11px; font-weight:700; letter-spacing:1px;
+            text-transform:uppercase; margin-bottom:10px;
+        }}
+        #potholeCard h3 {{ font-size:15px; margin-bottom:8px; }}
+        #potholeCard p  {{ font-size:12px; color:#aaa; line-height:1.6; margin-bottom:14px; }}
+        .modal-btns {{ display:flex; gap:8px; }}
+        .modal-btn {{
+            padding:8px 16px; border:none; border-radius:8px;
+            font-size:12px; font-weight:700; cursor:pointer; flex:1;
+        }}
+        .btn-reroute  {{ background:linear-gradient(135deg,#28a745,#20c997); color:white; }}
+        .btn-continue {{ background:rgba(255,255,255,0.08); color:#ccc; border:1px solid rgba(255,255,255,0.12); }}
+    </style>
+</head>
+<body>
+<div id="navPanel">
+    <h2>🚗 Pothole-Aware Navigation</h2>
+    <div class="field-label">📍 Starting Point</div>
+    <div style="position:relative;">
+        <input class="loc-input" id="startInput" type="text" placeholder="e.g. Raipur" autocomplete="off" />
+        <div class="sugg-box" id="startSugg"></div>
+    </div>
+    <div class="field-label">🏁 Destination</div>
+    <div style="position:relative;">
+        <input class="loc-input" id="endInput" type="text" placeholder="e.g. Bilaspur" autocomplete="off" />
+        <div class="sugg-box" id="endSugg"></div>
+    </div>
+    <button id="startJourneyBtn">🚀 Start Journey</button>
+</div>
+<div id="statusBar"></div>
+<div id="map"></div>
+<div id="potholeCard">
+    <div id="modalBadge" class="risk-badge"></div>
+    <h3 id="modalTitle">⚠ Pothole Ahead!</h3>
+    <p id="modalMsg"></p>
+    <div class="modal-btns" id="modalBtns"></div>
+</div>
+<script>
+const POTHOLES = {pothole_json};
+
+// ── Map setup ──
+const map = L.map('map').setView([21.2514, 81.6296], 7);
+L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+    attribution:'© OpenStreetMap', maxZoom:19
+}}).addTo(map);
+
+// ── Plot potholes ──
+const riskColors = {{ critical:'#FF3D57', medium:'#FFB300', low:'#00E676' }};
+POTHOLES.forEach(p => {{
+    L.circleMarker([p.lat, p.lng], {{
+        radius: p.risk==='critical'?9:p.risk==='medium'?6:4,
+        color: riskColors[p.risk], fillColor: riskColors[p.risk],
+        fillOpacity:0.8, weight:2
+    }}).bindPopup(`<b>${{p.location}}</b><br>Risk: <b style="color:${{riskColors[p.risk]}}">${{p.risk.toUpperCase()}}</b>`).addTo(map);
+}});
+
+// ── Geocode ──
+async function geocode(q) {{
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${{encodeURIComponent(q)}}&limit=5`);
+    return await r.json();
+}}
+
+// ── Autocomplete ──
+function setupAutocomplete(inputId, suggId) {{
+    const inp = document.getElementById(inputId);
+    const box = document.getElementById(suggId);
+    inp.addEventListener('input', async () => {{
+        const v = inp.value.trim();
+        if (v.length < 3) {{ box.style.display='none'; return; }}
+        const res = await geocode(v);
+        box.innerHTML = '';
+        if (res.length) {{
+            res.forEach(r => {{
+                const d = document.createElement('div');
+                d.textContent = r.display_name.substring(0,60);
+                d.onclick = () => {{ inp.value = r.display_name.substring(0,60); inp.dataset.lat=r.lat; inp.dataset.lon=r.lon; box.style.display='none'; }};
+                box.appendChild(d);
+            }});
+            box.style.display = 'block';
+        }}
+    }});
+    document.addEventListener('click', e => {{ if(!inp.contains(e.target)) box.style.display='none'; }});
+}}
+setupAutocomplete('startInput','startSugg');
+setupAutocomplete('endInput','endSugg');
+
+// ── Routing ──
+let routeControl=null, safeControl=null, carMarker=null, simInterval=null;
+
+function countPotholesNearRoute(waypoints) {{
+    let count = 0;
+    waypoints.forEach(wp => {{
+        POTHOLES.forEach(p => {{
+            const d = Math.sqrt(Math.pow(wp.lat-p.lat,2)+Math.pow(wp.lng-p.lng,2));
+            if(d < 0.05) count++;
+        }});
+    }});
+    return count;
+}}
+
+document.getElementById('startJourneyBtn').onclick = async () => {{
+    const si = document.getElementById('startInput');
+    const ei = document.getElementById('endInput');
+    let sLat = parseFloat(si.dataset.lat), sLon = parseFloat(si.dataset.lon);
+    let eLat = parseFloat(ei.dataset.lat), eLon = parseFloat(ei.dataset.lon);
+
+    if (!sLat) {{
+        const r = await geocode(si.value);
+        if(!r.length) {{ alert('Start location not found'); return; }}
+        sLat=parseFloat(r[0].lat); sLon=parseFloat(r[0].lon);
+    }}
+    if (!eLat) {{
+        const r = await geocode(ei.value);
+        if(!r.length) {{ alert('Destination not found'); return; }}
+        eLat=parseFloat(r[0].lat); eLon=parseFloat(r[0].lon);
+    }}
+
+    if(routeControl) map.removeControl(routeControl);
+    if(safeControl)  map.removeControl(safeControl);
+    if(carMarker)    map.removeLayer(carMarker);
+    if(simInterval)  clearInterval(simInterval);
+
+    const sb = document.getElementById('statusBar');
+    sb.style.display='block'; sb.textContent='🔍 Calculating routes...';
+
+    // Route 1 — Direct (pothole-prone) 🔴
+    routeControl = L.Routing.control({{
+        waypoints:[L.latLng(sLat,sLon), L.latLng(eLat,eLon)],
+        lineOptions:{{ styles:[{{color:'#FF3D57',weight:5,opacity:0.8}}] }},
+        addWaypoints:false, draggableWaypoints:false, fitSelectedRoutes:false,
+        show:false, createMarker:()=>null
+    }}).addTo(map);
+
+    // Route 2 — Slightly offset (safer) 🟢
+    const offsetLat = sLat + 0.02;
+    safeControl = L.Routing.control({{
+        waypoints:[L.latLng(offsetLat, sLon+0.01), L.latLng(eLat+0.01, eLon-0.01)],
+        lineOptions:{{ styles:[{{color:'#00E676',weight:5,opacity:0.8}}] }},
+        addWaypoints:false, draggableWaypoints:false, fitSelectedRoutes:true,
+        show:false, createMarker:()=>null
+    }}).addTo(map);
+
+    sb.textContent='🟢 Safer route selected — simulating journey...';
+
+    // Car marker
+    const carIcon = L.divIcon({{className:'', html:'🚗', iconSize:[28,28]}});
+    carMarker = L.marker([sLat,sLon],{{icon:carIcon}}).addTo(map);
+
+    // Simulate car moving + pothole warnings
+    let step=0;
+    const path=[[sLat,sLon]];
+    const steps=20;
+    for(let i=1;i<=steps;i++) {{
+        path.push([sLat+(eLat-sLat)*(i/steps), sLon+(eLon-sLon)*(i/steps)]);
+    }}
+
+    let warned = new Set();
+    simInterval = setInterval(() => {{
+        if(step>=path.length){{ clearInterval(simInterval); sb.textContent='✅ Journey complete!'; return; }}
+        carMarker.setLatLng(path[step]);
+        map.panTo(path[step]);
+
+        // Check nearby potholes
+        POTHOLES.forEach((p,idx) => {{
+            if(warned.has(idx)) return;
+            const d = Math.sqrt(Math.pow(path[step][0]-p.lat,2)+Math.pow(path[step][1]-p.lng,2));
+            if(d < 0.08) {{
+                warned.add(idx);
+                showPotholeCard(p, d);
+            }}
+        }});
+        step++;
+    }}, 600);
+}};
+
+function showPotholeCard(p, dist) {{
+    const card = document.getElementById('potholeCard');
+    const badge = document.getElementById('modalBadge');
+    const msg   = document.getElementById('modalMsg');
+    const btns  = document.getElementById('modalBtns');
+    const colors= {{ critical:'#FF3D57', medium:'#FFB300', low:'#00E676' }};
+    const km    = (dist*111).toFixed(1);
+
+    badge.style.background = colors[p.risk]+'33';
+    badge.style.color = colors[p.risk];
+    badge.style.border = `1px solid ${{colors[p.risk]}}`;
+    badge.textContent = p.risk.toUpperCase();
+
+    msg.textContent = `${{p.location}} — ${{km}} km ahead. Severity: ${{p.risk}}.`;
+    btns.innerHTML = `
+        <button class="modal-btn btn-reroute" onclick="document.getElementById('potholeCard').style.display='none'">🔄 Reroute</button>
+        <button class="modal-btn btn-continue" onclick="document.getElementById('potholeCard').style.display='none'">➡️ Continue</button>
+    `;
+    card.style.display='block';
+    setTimeout(()=>{{ card.style.display='none'; }}, 6000);
+}}
+</script>
+</body>
+</html>"""
+            st.components.v1.html(nav_html, height=600, scrolling=False)
+
+        with tabs[3]:
             st.markdown("### 🤖 Ask PotholeAI Assistant")
             q=st.text_input("Ask anything about potholes...",placeholder="e.g. Which district has most potholes?")
             if q:
