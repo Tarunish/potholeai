@@ -604,9 +604,10 @@ Rules:
             import json as _json
             pothole_data = []
             for c in all_c:
-                risk = "critical" if c["severity"]=="Critical" else "medium" if c["severity"]=="Moderate" else "low"
+                sev = c.get("severity","Minor")
+                risk = "critical" if sev=="Critical" else "medium" if sev=="Moderate" else "low"
                 pothole_data.append({"lat": c["gps"]["lat"], "lng": c["gps"]["lon"], "risk": risk, "location": c["location"]})
-            pothole_json = _json.dumps(pothole_data[:200])
+            pothole_json = _json.dumps(pothole_data[:300])
 
             nav_html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -678,13 +679,36 @@ var POTHOLES = {pothole_json};
 var map = L.map('map').setView([21.2514,81.6296],7);
 L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png',{{maxZoom:19,attribution:'© OpenStreetMap'}}).addTo(map);
 
-// --- Plot pothole markers ---
+// --- Plot pothole markers with correct colors ---
+var criticalCount=0, mediumCount=0, lowCount=0;
 POTHOLES.forEach(function(p){{
-  var c = p.risk==='critical'?'#FF3D57':p.risk==='medium'?'#FFB300':'#00E676';
-  var r = p.risk==='critical'?9:p.risk==='medium'?6:4;
-  L.circleMarker([p.lat,p.lng],{{radius:r,color:c,fillColor:c,fillOpacity:0.8,weight:2}})
-   .bindPopup('<b>'+p.location+'</b><br>Risk: <b style="color:'+c+'">'+p.risk.toUpperCase()+'</b>').addTo(map);
+  var risk = p.risk ? p.risk.toLowerCase() : 'low';
+  var c = risk==='critical'?'#FF3D57':risk==='medium'?'#FFB300':'#00C853';
+  var r = risk==='critical'?9:risk==='medium'?6:4;
+  if(risk==='critical') criticalCount++;
+  else if(risk==='medium') mediumCount++;
+  else lowCount++;
+  L.circleMarker([p.lat,p.lng],{{
+    radius:r, color:c, fillColor:c,
+    fillOpacity:0.85, weight:2,
+    opacity:1
+  }}).bindPopup(
+    '<b style="color:'+c+'">⚠ '+risk.toUpperCase()+'</b><br>'+p.location
+  ).addTo(map);
 }});
+
+// --- Legend ---
+var legend = L.control({{position:'bottomleft'}});
+legend.onAdd = function(){{
+  var div = L.DomUtil.create('div');
+  div.style.cssText='background:rgba(15,20,45,0.95);padding:10px 14px;border-radius:10px;color:#eee;font-size:12px;border:1px solid rgba(255,255,255,0.1)';
+  div.innerHTML='<b style="color:#7ec8e3">Pothole Risk</b><br>'
+    +'<span style="color:#FF3D57">● Critical ('+criticalCount+')</span><br>'
+    +'<span style="color:#FFB300">● Medium ('+mediumCount+')</span><br>'
+    +'<span style="color:#00C853">● Low ('+lowCount+')</span>';
+  return div;
+}};
+legend.addTo(map);
 
 // --- State ---
 var startLatLng=null, endLatLng=null;
@@ -812,36 +836,43 @@ function beginJourney(){{
   fetch(url).then(function(r){{return r.json()}}).then(function(data){{
     if(!data.routes||!data.routes.length){{alert('No route found');hideStatus();document.getElementById('startJourneyBtn').disabled=false;return}}
 
-    // Score routes by pothole proximity
+    // Score routes by pothole proximity — weighted by severity
     var scored=data.routes.map(function(route){{
       var coords=route.geometry.coordinates;
       var score=0;
-      coords.forEach(function(coord){{
+      // Sample every 5th coord for performance
+      for(var ci=0;ci<coords.length;ci+=5){{
         POTHOLES.forEach(function(p){{
-          var d=map.distance([coord[1],coord[0]],[p.lat,p.lng]);
-          if(d<1500) score+=(p.risk==='critical'?10:p.risk==='medium'?5:1);
+          var d=map.distance([coords[ci][1],coords[ci][0]],[p.lat,p.lng]);
+          if(d<1500){{
+            score+=(p.risk==='critical'?15:p.risk==='medium'?6:2);
+          }}
         }});
-      }});
+      }}
       return {{route:route,score:score}};
     }});
     scored.sort(function(a,b){{return a.score-b.score}});
 
     var safeRoute=scored[0].route;
+    var safeScore=scored[0].score;
     var riskyRoute=scored[scored.length-1].route;
+    var riskyScore=scored[scored.length-1].score;
 
     // Draw risky route red dashed
     var redCoords=riskyRoute.geometry.coordinates.map(function(c){{return[c[1],c[0]]}});
-    origRouteLine=L.polyline(redCoords,{{color:'#f44336',weight:5,opacity:0.7,dashArray:'10,6'}}).addTo(map);
-    origRouteLine.bindTooltip('🔴 Pothole-prone route',{{sticky:true}});
+    origRouteLine=L.polyline(redCoords,{{color:'#f44336',weight:4,opacity:0.65,dashArray:'12,8'}}).addTo(map);
+    origRouteLine.bindTooltip('🔴 Risky route — '+Math.round(riskyScore)+' danger pts',{{sticky:true}});
     origRouteCoords=redCoords.map(function(c){{return{{lat:c[0],lng:c[1]}}}});
 
-    // Draw safe route green
+    // Draw safe route green — thicker and prominent
     var greenCoords=safeRoute.geometry.coordinates.map(function(c){{return[c[1],c[0]]}});
-    safeRouteLine=L.polyline(greenCoords,{{color:'#00c853',weight:7,opacity:0.95}}).addTo(map);
-    safeRouteLine.bindTooltip('🟢 Safer route selected',{{sticky:true}});
+    safeRouteLine=L.polyline(greenCoords,{{color:'#00c853',weight:8,opacity:1.0}}).addTo(map);
+    safeRouteLine.bindTooltip('🟢 SAFEST route — '+Math.round(safeScore)+' danger pts (SELECTED)',{{sticky:true,permanent:false}});
     routeCoordinates=greenCoords.map(function(c){{return{{lat:c[0],lng:c[1]}}}});
 
-    map.fitBounds(safeRouteLine.getBounds(),{{padding:[40,40]}});
+    // Bring green to front
+    safeRouteLine.bringToFront();
+    map.fitBounds(safeRouteLine.getBounds(),{{padding:[60,60]}});
 
     // Place car
     var carSVG='<div style="font-size:24px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));transition:transform 0.15s">🚗</div>';
