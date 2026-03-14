@@ -144,7 +144,7 @@ def detect(image_path):
         gps_source = "SIMULATED"
         print("📡 No GPS in image — using CG highway simulation data")
 
-    model = YOLO("yolo11n.pt")
+    model = YOLO("best.pt")
     img   = cv2.imread(image_path)
     if img is None:
         print("❌ Image not found.")
