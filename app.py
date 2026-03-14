@@ -784,7 +784,7 @@ Rules:
                     cap=cv2.VideoCapture("temp.mp4")
                     fps=cap.get(cv2.CAP_PROP_FPS) or 30
                     tot=int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                    mdl=__import__("ultralytics").YOLO("yolo11n.pt")
+                    mdl=__import__("ultralytics").YOLO("best.pt")
                     prog=st.progress(0); stxt=st.empty(); found=[]; fidx=0
                     while True:
                         ret,frame=cap.read()
