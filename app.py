@@ -52,7 +52,7 @@ THEME = """
 /* ── BASE ── */
 .stApp                              { background: var(--bg) !important; font-family:'Inter',sans-serif; }
 .main .block-container              { padding: 1.5rem 2rem !important; }
-section[data-testid="stSidebar"]    { background: var(--bg2) !important; border-right:1px solid var(--border); }
+section[data-testid="stSidebar"]    { background: var(--bg2) !important; border-right:1px solid var(--border); display:flex !important; }
 section[data-testid="stSidebar"] *  { color: var(--text) !important; }
 
 /* ── HIDE STREAMLIT CHROME ── */
@@ -327,15 +327,7 @@ if not st.session_state.logged_in:
 
 else:
     # ══════════════════════════════════════════════════════════════════════════
-    # DASHBOARD (only runs when logged in)
-    # ══════════════════════════════════════════════════════════════════════════
     st.markdown(THEME, unsafe_allow_html=True)
-    st.markdown("""
-    <style>
-        section[data-testid="stSidebar"] { display:flex !important; }
-        [data-testid="collapsedControl"]  { display:flex !important; }
-    </style>
-    """, unsafe_allow_html=True)
 
     # ── SESSION STATE ────────────────────────────────────────────────────────
     for k,v in {"complaints":[],"detected_img":None,"notifications":[],
