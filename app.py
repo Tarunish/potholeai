@@ -764,18 +764,7 @@ setupAutocomplete('startInput','startSugg');
 setupAutocomplete('endInput','endSugg');
 
 // ── Routing ──
-let routeControl=null, safeControl=null, carMarker=null, simInterval=null;
-
-function countPotholesNearRoute(waypoints) {{
-    let count = 0;
-    waypoints.forEach(wp => {{
-        POTHOLES.forEach(p => {{
-            const d = Math.sqrt(Math.pow(wp.lat-p.lat,2)+Math.pow(wp.lng-p.lng,2));
-            if(d < 0.05) count++;
-        }});
-    }});
-    return count;
-}}
+let redLine=null, greenLine=null, carMarker=null, simInterval=null;
 
 document.getElementById('startJourneyBtn').onclick = async () => {{
     const si = document.getElementById('startInput');
@@ -783,73 +772,96 @@ document.getElementById('startJourneyBtn').onclick = async () => {{
     let sLat = parseFloat(si.dataset.lat), sLon = parseFloat(si.dataset.lon);
     let eLat = parseFloat(ei.dataset.lat), eLon = parseFloat(ei.dataset.lon);
 
-    if (!sLat) {{
+    const sb = document.getElementById('statusBar');
+    sb.style.display='block'; sb.textContent='🔍 Finding locations...';
+
+    if (!sLat || isNaN(sLat)) {{
         const r = await geocode(si.value);
-        if(!r.length) {{ alert('Start location not found'); return; }}
+        if(!r.length) {{ alert('❌ Start location not found. Try: Raipur, Chhattisgarh'); return; }}
         sLat=parseFloat(r[0].lat); sLon=parseFloat(r[0].lon);
     }}
-    if (!eLat) {{
+    if (!eLat || isNaN(eLat)) {{
         const r = await geocode(ei.value);
-        if(!r.length) {{ alert('Destination not found'); return; }}
+        if(!r.length) {{ alert('❌ Destination not found. Try: Bilaspur, Chhattisgarh'); return; }}
         eLat=parseFloat(r[0].lat); eLon=parseFloat(r[0].lon);
     }}
 
-    if(routeControl) map.removeControl(routeControl);
-    if(safeControl)  map.removeControl(safeControl);
-    if(carMarker)    map.removeLayer(carMarker);
-    if(simInterval)  clearInterval(simInterval);
+    // Clear old layers
+    if(redLine)   map.removeLayer(redLine);
+    if(greenLine) map.removeLayer(greenLine);
+    if(carMarker) map.removeLayer(carMarker);
+    if(simInterval) clearInterval(simInterval);
 
-    const sb = document.getElementById('statusBar');
-    sb.style.display='block'; sb.textContent='🔍 Calculating routes...';
+    sb.textContent='🗺️ Drawing routes...';
 
-    // Route 1 — Direct (pothole-prone) 🔴
-    routeControl = L.Routing.control({{
-        waypoints:[L.latLng(sLat,sLon), L.latLng(eLat,eLon)],
-        lineOptions:{{ styles:[{{color:'#FF3D57',weight:5,opacity:0.8}}] }},
-        addWaypoints:false, draggableWaypoints:false, fitSelectedRoutes:false,
-        show:false, createMarker:()=>null
-    }}).addTo(map);
-
-    // Route 2 — Slightly offset (safer) 🟢
-    const offsetLat = sLat + 0.02;
-    safeControl = L.Routing.control({{
-        waypoints:[L.latLng(offsetLat, sLon+0.01), L.latLng(eLat+0.01, eLon-0.01)],
-        lineOptions:{{ styles:[{{color:'#00E676',weight:5,opacity:0.8}}] }},
-        addWaypoints:false, draggableWaypoints:false, fitSelectedRoutes:true,
-        show:false, createMarker:()=>null
-    }}).addTo(map);
-
-    sb.textContent='🟢 Safer route selected — simulating journey...';
-
-    // Car marker
-    const carIcon = L.divIcon({{className:'', html:'🚗', iconSize:[28,28]}});
-    carMarker = L.marker([sLat,sLon],{{icon:carIcon}}).addTo(map);
-
-    // Simulate car moving + pothole warnings
-    let step=0;
-    const path=[[sLat,sLon]];
-    const steps=20;
-    for(let i=1;i<=steps;i++) {{
-        path.push([sLat+(eLat-sLat)*(i/steps), sLon+(eLon-sLon)*(i/steps)]);
+    // Build paths
+    const steps = 30;
+    const redPath   = [], greenPath = [];
+    for(let i=0; i<=steps; i++) {{
+        const t = i/steps;
+        // Red route — direct (pothole-prone)
+        redPath.push([sLat+(eLat-sLat)*t, sLon+(eLon-sLon)*t]);
+        // Green route — slight detour (safer)
+        const bulge = Math.sin(Math.PI*t)*0.15;
+        greenPath.push([
+            sLat+(eLat-sLat)*t + bulge*0.3,
+            sLon+(eLon-sLon)*t + bulge*0.3
+        ]);
     }}
 
-    let warned = new Set();
-    simInterval = setInterval(() => {{
-        if(step>=path.length){{ clearInterval(simInterval); sb.textContent='✅ Journey complete!'; return; }}
-        carMarker.setLatLng(path[step]);
-        map.panTo(path[step]);
+    // Draw red route 🔴
+    redLine = L.polyline(redPath, {{
+        color:'#FF3D57', weight:5, opacity:0.8,
+        dashArray:'10,6'
+    }}).addTo(map);
+    redLine.bindTooltip('🔴 Pothole-prone route', {{permanent:false}});
 
-        // Check nearby potholes
+    // Draw green route 🟢
+    greenLine = L.polyline(greenPath, {{
+        color:'#00E676', weight:5, opacity:0.9
+    }}).addTo(map);
+    greenLine.bindTooltip('🟢 Safer route', {{permanent:false}});
+
+    // Fit map to show both routes
+    map.fitBounds(L.latLngBounds([...redPath, ...greenPath]), {{padding:[40,40]}});
+
+    // Add start/end markers
+    L.marker([sLat,sLon]).bindPopup('📍 Start').addTo(map).openPopup();
+    L.marker([eLat,eLon]).bindPopup('🏁 Destination').addTo(map);
+
+    sb.textContent='🚗 Simulating journey on safer route...';
+
+    // Animate car along green (safer) route
+    const carIcon = L.divIcon({{className:'', html:'<div style="font-size:22px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))">🚗</div>', iconSize:[28,28]}});
+    carMarker = L.marker(greenPath[0], {{icon:carIcon, zIndexOffset:1000}}).addTo(map);
+
+    let step = 0;
+    let warned = new Set();
+
+    simInterval = setInterval(() => {{
+        if(step >= greenPath.length) {{
+            clearInterval(simInterval);
+            sb.textContent='✅ Journey complete! Avoided ' + warned.size + ' potholes.';
+            sb.style.background='rgba(0,230,118,0.15)';
+            sb.style.borderColor='rgba(0,230,118,0.4)';
+            return;
+        }}
+        carMarker.setLatLng(greenPath[step]);
+
+        // Warn about nearby potholes
         POTHOLES.forEach((p,idx) => {{
             if(warned.has(idx)) return;
-            const d = Math.sqrt(Math.pow(path[step][0]-p.lat,2)+Math.pow(path[step][1]-p.lng,2));
-            if(d < 0.08) {{
+            const d = Math.sqrt(
+                Math.pow(greenPath[step][0]-p.lat,2) +
+                Math.pow(greenPath[step][1]-p.lng,2)
+            );
+            if(d < 0.12) {{
                 warned.add(idx);
                 showPotholeCard(p, d);
             }}
         }});
         step++;
-    }}, 600);
+    }}, 400);
 }};
 
 function showPotholeCard(p, dist) {{
