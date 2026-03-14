@@ -1,0 +1,11 @@
+streamlit
+opencv-python-headless
+numpy
+pandas
+plotly
+folium
+streamlit-folium
+Pillow
+ultralytics
+reportlab
+python-dotenv
