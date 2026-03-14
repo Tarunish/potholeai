@@ -155,7 +155,7 @@ if not st.session_state.logged_in:
     st.markdown(THEME, unsafe_allow_html=True)
     st.markdown("""
     <style>
-        section[data-testid="stSidebar"] { display:none !important; }
+        section[data-testid="stSidebar"] { visibility:hidden !important; width:0px !important; min-width:0px !important; overflow:hidden !important; }
         [data-testid="collapsedControl"]  { display:none !important; }
         .main .block-container { padding:0 !important; max-width:100% !important; }
 
@@ -317,18 +317,22 @@ if not st.session_state.logged_in:
             else:
                 st.error("❌ Invalid credentials")
         st.markdown("""
-    <style>
-        section[data-testid="stSidebar"] { display:none !important; }
-        [data-testid="collapsedControl"]  { display:none !important; }
-    </style>
-    """, unsafe_allow_html=True)
+        <div class="login-hint">
+            <span style="color:#2A3F55;">
+            👑 <b style="color:#00D4FF;">admin</b> / admin123 &nbsp;—&nbsp; Full dashboard<br>
+            🏗️ <b style="color:#00D4FF;">engineer</b> / pwd123 &nbsp;—&nbsp; Monitor & manage<br>
+            👤 <b style="color:#00D4FF;">public</b> / pub123 &nbsp;—&nbsp; Submit reports
+            </span>
+        </div>""", unsafe_allow_html=True)
 
 else:
+    # ══════════════════════════════════════════════════════════════════════════
+    # DASHBOARD (only runs when logged in)
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(THEME, unsafe_allow_html=True)
     st.markdown("""
     <style>
-        section[data-testid="stSidebar"] { display:flex !important; }
+        section[data-testid="stSidebar"] { visibility:visible !important; width:auto !important; min-width:244px !important; overflow:visible !important; display:flex !important; }
         [data-testid="collapsedControl"]  { display:flex !important; }
     </style>
     """, unsafe_allow_html=True)
