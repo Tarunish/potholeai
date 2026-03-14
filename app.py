@@ -52,7 +52,7 @@ THEME = """
 /* ── BASE ── */
 .stApp                              { background: var(--bg) !important; font-family:'Inter',sans-serif; }
 .main .block-container              { padding: 1.5rem 2rem !important; }
-section[data-testid="stSidebar"]    { background: var(--bg2) !important; border-right:1px solid var(--border); display:flex !important; }
+section[data-testid="stSidebar"]    { background: var(--bg2) !important; border-right:1px solid var(--border); }
 section[data-testid="stSidebar"] *  { color: var(--text) !important; }
 
 /* ── HIDE STREAMLIT CHROME ── */
@@ -317,17 +317,21 @@ if not st.session_state.logged_in:
             else:
                 st.error("❌ Invalid credentials")
         st.markdown("""
-        <div class="login-hint">
-            <span style="color:#2A3F55;">
-            👑 <b style="color:#00D4FF;">admin</b> / admin123 &nbsp;—&nbsp; Full dashboard<br>
-            🏗️ <b style="color:#00D4FF;">engineer</b> / pwd123 &nbsp;—&nbsp; Monitor & manage<br>
-            👤 <b style="color:#00D4FF;">public</b> / pub123 &nbsp;—&nbsp; Submit reports
-            </span>
-        </div>""", unsafe_allow_html=True)
+    <style>
+        section[data-testid="stSidebar"] { display:none !important; }
+        [data-testid="collapsedControl"]  { display:none !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
 else:
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(THEME, unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+        section[data-testid="stSidebar"] { display:flex !important; }
+        [data-testid="collapsedControl"]  { display:flex !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
     # ── SESSION STATE ────────────────────────────────────────────────────────
     for k,v in {"complaints":[],"detected_img":None,"notifications":[],
