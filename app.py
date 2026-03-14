@@ -330,6 +330,12 @@ else:
     # DASHBOARD (only runs when logged in)
     # ══════════════════════════════════════════════════════════════════════════
     st.markdown(THEME, unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+        section[data-testid="stSidebar"] { display:flex !important; }
+        [data-testid="collapsedControl"]  { display:flex !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
     # ── SESSION STATE ────────────────────────────────────────────────────────
     for k,v in {"complaints":[],"detected_img":None,"notifications":[],
