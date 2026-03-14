@@ -159,174 +159,152 @@ if not st.session_state.logged_in:
         [data-testid="collapsedControl"]  { display:none !important; }
         .main .block-container { padding:0 !important; max-width:100% !important; }
 
-        /* Full-page background */
         .stApp {
-            background: radial-gradient(ellipse at 50% 0%, #001830 0%, #070D1A 70%) !important;
+            background: #060C18 !important;
         }
 
-        /* Push everything to center */
-        .login-page {
+        /* grid bg lines */
+        .stApp::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .login-wrap {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
+            z-index: 1;
         }
 
-        /* The unified card */
         .login-card {
-            width: 440px;
-            background: rgba(12, 20, 35, 0.96);
-            border: 1px solid rgba(0,212,255,0.18);
-            border-radius: 24px;
-            padding: 40px 38px 36px;
-            box-shadow:
-                0 0 0 1px rgba(0,212,255,0.06),
-                0 8px 64px rgba(0,0,0,0.6),
-                0 0 60px rgba(0,212,255,0.07);
+            width: 420px;
+            background: rgba(8,14,26,0.97);
+            border-radius: 20px;
+            border: 1px solid rgba(0,212,255,0.15);
+            padding: 44px 40px 36px;
             text-align: center;
-            margin: auto;
+            box-shadow:
+                0 0 80px rgba(0,212,255,0.06),
+                0 30px 80px rgba(0,0,0,0.7),
+                inset 0 1px 0 rgba(0,212,255,0.1);
+            position: relative;
         }
 
-        /* SVG logo circle */
+        /* top cyan bar */
+        .login-card::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 20px; right: 20px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00D4FF, transparent);
+            border-radius: 2px;
+        }
+
         .login-logo {
-            width: 120px;
-            height: 120px;
+            width: 110px;
+            height: 110px;
             border-radius: 50%;
-            border: 2px solid rgba(0,212,255,0.45);
-            box-shadow: 0 0 28px rgba(0,212,255,0.3), 0 0 60px rgba(0,212,255,0.1);
-            margin-bottom: 18px;
-            margin-left: auto;
-            margin-right: auto;
+            border: 2px solid rgba(0,212,255,0.5);
+            box-shadow:
+                0 0 0 6px rgba(0,212,255,0.05),
+                0 0 30px rgba(0,212,255,0.25);
+            margin: 0 auto 20px;
+            display: block;
             overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
-        .login-title {
-            font-family: Rajdhani, sans-serif;
-            font-size: 44px;
+        .login-brand {
+            font-family: 'Arial Black', sans-serif;
+            font-size: 40px;
             font-weight: 900;
-            letter-spacing: 3px;
-            margin: 0 0 4px 0;
+            letter-spacing: 2px;
             line-height: 1;
+            margin: 0 0 6px;
         }
 
-        .login-tagline {
-            font-size: 10.5px;
+        .login-sub {
+            font-size: 9.5px;
             letter-spacing: 3px;
-            color: #3A4A5F;
-            margin-bottom: 28px;
+            color: #253545;
             text-transform: uppercase;
+            margin-bottom: 28px;
         }
 
         .login-divider {
             height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.2), transparent);
-            margin: 0 0 24px 0;
+            background: linear-gradient(90deg,transparent,rgba(0,212,255,0.15),transparent);
+            margin-bottom: 24px;
         }
 
         .login-hint {
-            margin-top: 14px;
-            background: rgba(5,10,20,0.8);
-            border: 1px solid rgba(255,255,255,0.05);
+            margin-top: 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.04);
             border-radius: 10px;
             padding: 12px 16px;
-            font-size: 12px;
+            font-size: 11.5px;
             text-align: left;
-            line-height: 1.8;
+            line-height: 2;
         }
 
-        /* Make Streamlit inputs look good */
         .stTextInput > div > div > input {
-            background: rgba(255,255,255,0.04) !important;
-            border: 1px solid rgba(0,212,255,0.2) !important;
+            background: rgba(255,255,255,0.03) !important;
+            border: 1px solid rgba(0,212,255,0.18) !important;
             border-radius: 10px !important;
-            color: #E2E8F0 !important;
-            padding: 12px 16px !important;
+            color: #CBD5E1 !important;
             font-size: 14px !important;
         }
         .stTextInput > div > div > input:focus {
-            border-color: rgba(0,212,255,0.6) !important;
-            box-shadow: 0 0 12px rgba(0,212,255,0.15) !important;
+            border-color: rgba(0,212,255,0.55) !important;
+            box-shadow: 0 0 0 3px rgba(0,212,255,0.08) !important;
         }
-        .stTextInput label { display: none !important; }
+        .stTextInput label { display:none !important; }
 
-        /* Login button */
         .stButton > button {
-            background: linear-gradient(135deg, #00B4D8, #0090CC) !important;
-            color: white !important;
+            background: linear-gradient(135deg, #0098C8 0%, #006FA8 100%) !important;
+            color: #fff !important;
             border: none !important;
             border-radius: 10px !important;
-            font-size: 15px !important;
-            font-weight: 700 !important;
-            letter-spacing: 1.5px !important;
-            padding: 12px !important;
+            font-size: 14px !important;
+            font-weight: 800 !important;
+            letter-spacing: 2px !important;
+            padding: 13px !important;
             width: 100% !important;
-            margin-top: 4px !important;
-            box-shadow: 0 4px 20px rgba(0,180,216,0.35) !important;
-            transition: all 0.2s !important;
+            margin-top: 6px !important;
+            box-shadow: 0 4px 24px rgba(0,152,200,0.4) !important;
         }
         .stButton > button:hover {
-            background: linear-gradient(135deg, #00C6F0, #00A0E0) !important;
-            box-shadow: 0 6px 28px rgba(0,198,240,0.45) !important;
+            background: linear-gradient(135deg, #00B4E8 0%, #0084C8 100%) !important;
+            box-shadow: 0 6px 32px rgba(0,180,232,0.5) !important;
             transform: translateY(-1px) !important;
         }
     </style>
 
-    <div class="login-page">
+    <div class="login-wrap">
         <div class="login-card">
-            <div class="login-logo" style="display:flex;align-items:center;justify-content:center;padding:0;">
-                <svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg" width="120" height="120">
-  <defs><clipPath id="lc"><circle cx="80" cy="80" r="74"/></clipPath></defs>
-  <circle cx="80" cy="80" r="80" fill="#060C18"/>
-  <circle cx="80" cy="80" r="74" fill="#0A111F"/>
-  <circle cx="80" cy="80" r="74" fill="none" stroke="#00D4FF" stroke-width="2"/>
-  <circle cx="80" cy="80" r="67" fill="none" stroke="#00D4FF" stroke-width="0.4" stroke-opacity="0.3"/>
-  <!-- road bg -->
-  <rect x="6" y="6" width="148" height="148" fill="#0D1828" clip-path="url(#lc)"/>
-  <!-- road trapezoid -->
-  <polygon points="52,148 108,148 96,42 64,42" fill="#111C2E" clip-path="url(#lc)"/>
-  <line x1="52" y1="148" x2="64" y2="42" stroke="#1A2F4A" stroke-width="1.5" clip-path="url(#lc)"/>
-  <line x1="108" y1="148" x2="96" y2="42" stroke="#1A2F4A" stroke-width="1.5" clip-path="url(#lc)"/>
-  <!-- dashes -->
-  <rect x="78" y="115" width="5" height="16" rx="2" fill="#FFB300" opacity="0.6" clip-path="url(#lc)"/>
-  <rect x="78" y="92" width="4" height="12" rx="2" fill="#FFB300" opacity="0.5" clip-path="url(#lc)"/>
-  <rect x="78" y="73" width="3.5" height="9" rx="1.5" fill="#FFB300" opacity="0.4" clip-path="url(#lc)"/>
-  <!-- pothole -->
-  <ellipse cx="80" cy="118" rx="20" ry="8" fill="#040810" clip-path="url(#lc)"/>
-  <ellipse cx="80" cy="119" rx="14" ry="6" fill="#060C18" clip-path="url(#lc)"/>
-  <ellipse cx="77" cy="118" rx="7" ry="3" fill="#0A1828" opacity="0.9" clip-path="url(#lc)"/>
-  <path d="M63 114 L70 110 L74 117 L79 112" fill="none" stroke="#1A2A3A" stroke-width="1" clip-path="url(#lc)"/>
-  <path d="M96 114 L90 111 L87 117" fill="none" stroke="#1A2A3A" stroke-width="1" clip-path="url(#lc)"/>
-  <!-- detection box -->
-  <rect x="57" y="108" width="46" height="24" rx="2" fill="none" stroke="#FF3D57" stroke-width="1.2" stroke-dasharray="4 2" clip-path="url(#lc)"/>
-  <path d="M57 113 L57 108 L62 108" fill="none" stroke="#FF3D57" stroke-width="2" clip-path="url(#lc)"/>
-  <path d="M99 113 L99 108 L94 108" fill="none" stroke="#FF3D57" stroke-width="2" clip-path="url(#lc)"/>
-  <path d="M57 127 L57 132 L62 132" fill="none" stroke="#FF3D57" stroke-width="2" clip-path="url(#lc)"/>
-  <path d="M99 127 L99 132 L94 132" fill="none" stroke="#FF3D57" stroke-width="2" clip-path="url(#lc)"/>
-  <!-- scan beam -->
-  <line x1="80" y1="108" x2="80" y2="65" stroke="#00D4FF" stroke-width="1" stroke-dasharray="3 3" opacity="0.7" clip-path="url(#lc)"/>
-  <ellipse cx="80" cy="63" rx="16" ry="5" fill="none" stroke="#00D4FF" stroke-width="1" opacity="0.35" clip-path="url(#lc)"/>
-  <ellipse cx="80" cy="63" rx="8" ry="3" fill="none" stroke="#00D4FF" stroke-width="1" opacity="0.65" clip-path="url(#lc)"/>
-  <circle cx="80" cy="63" r="3" fill="#00D4FF" clip-path="url(#lc)"/>
-  <circle cx="80" cy="63" r="6" fill="#00D4FF" opacity="0.12" clip-path="url(#lc)"/>
-</svg>
-            </div>
-            <h1 class="login-title">
-                <span style="color:#E2E8F0;">Pothole</span><span style="color:#00D4FF;">AI</span>
+            <svg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg' width='120' height='120'>   <defs><clipPath id='lc'><circle cx='80' cy='80' r='74'/></clipPath></defs>   <circle cx='80' cy='80' r='80' fill='#060C18'/>   <circle cx='80' cy='80' r='74' fill='none' stroke='#00D4FF' stroke-width='2'/>   <circle cx='80' cy='80' r='68' fill='none' stroke='#00D4FF' stroke-width='0.4' stroke-opacity='0.25'/>   <rect x='6' y='6' width='148' height='148' fill='#0A111F' clip-path='url(#lc)'/>   <polygon points='52,148 108,148 94,38 66,38' fill='#111C2E' clip-path='url(#lc)'/>   <line x1='52' y1='148' x2='66' y2='38' stroke='#1A2F4A' stroke-width='1.5' clip-path='url(#lc)'/>   <line x1='108' y1='148' x2='94' y2='38' stroke='#1A2F4A' stroke-width='1.5' clip-path='url(#lc)'/>   <rect x='77' y='110' width='5' height='17' rx='2.5' fill='#FFB300' opacity='0.65' clip-path='url(#lc)'/>   <rect x='77.5' y='86' width='4.5' height='13' rx='2' fill='#FFB300' opacity='0.5' clip-path='url(#lc)'/>   <rect x='78' y='66' width='4' height='10' rx='2' fill='#FFB300' opacity='0.38' clip-path='url(#lc)'/>   <ellipse cx='80' cy='118' rx='21' ry='8.5' fill='#030710' clip-path='url(#lc)'/>   <ellipse cx='80' cy='119' rx='15' ry='6' fill='#060C18' clip-path='url(#lc)'/>   <ellipse cx='77' cy='118' rx='8' ry='3.2' fill='#0D1E30' clip-path='url(#lc)'/>   <path d='M62 113 L70 109 L74 116 L79 111' fill='none' stroke='#1F3040' stroke-width='1.2' clip-path='url(#lc)'/>   <path d='M97 113 L90 110 L87 116' fill='none' stroke='#1F3040' stroke-width='1.2' clip-path='url(#lc)'/>   <rect x='56' y='106' width='48' height='25' rx='2' fill='none' stroke='#FF3D57' stroke-width='1.4' stroke-dasharray='4 2.5' clip-path='url(#lc)'/>   <path d='M56 112 L56 106 L62 106' fill='none' stroke='#FF3D57' stroke-width='2.2' clip-path='url(#lc)'/>   <path d='M100 112 L100 106 L94 106' fill='none' stroke='#FF3D57' stroke-width='2.2' clip-path='url(#lc)'/>   <path d='M56 125 L56 131 L62 131' fill='none' stroke='#FF3D57' stroke-width='2.2' clip-path='url(#lc)'/>   <path d='M100 125 L100 131 L94 131' fill='none' stroke='#FF3D57' stroke-width='2.2' clip-path='url(#lc)'/>   <line x1='80' y1='106' x2='80' y2='58' stroke='#00D4FF' stroke-width='1.2' stroke-dasharray='3 3' opacity='0.8' clip-path='url(#lc)'/>   <ellipse cx='80' cy='56' rx='17' ry='6' fill='none' stroke='#00D4FF' stroke-width='1' opacity='0.3' clip-path='url(#lc)'/>   <ellipse cx='80' cy='56' rx='9' ry='3.5' fill='none' stroke='#00D4FF' stroke-width='1' opacity='0.6' clip-path='url(#lc)'/>   <circle cx='80' cy='56' r='3.5' fill='#00D4FF' clip-path='url(#lc)'/>   <circle cx='80' cy='56' r='7' fill='#00D4FF' opacity='0.15' clip-path='url(#lc)'/> </svg>
+            <h1 class="login-brand">
+                <span style="color:#E2E8F0">Pothole</span><span style="color:#00D4FF">AI</span>
             </h1>
-            <p class="login-tagline">Autonomous Road Intelligence &nbsp;·&nbsp; CHIPS PS-02</p>
+            <p class="login-sub">Autonomous Road Intelligence</p>
             <div class="login-divider"></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Center column for inputs
-    spacer1, login_col, spacer2 = st.columns([1, 1.2, 1])
-    with login_col:
-        st.markdown('<div style="margin-top:-174px;"></div>', unsafe_allow_html=True)
-        u = st.text_input("u", placeholder="👤  Username  (admin / engineer / public)", label_visibility="collapsed")
+    _, col, _ = st.columns([1, 1.1, 1])
+    with col:
+        st.markdown('<div style="margin-top:-178px;"></div>', unsafe_allow_html=True)
+        u = st.text_input("u", placeholder="👤  Username", label_visibility="collapsed")
         p = st.text_input("p", type="password", placeholder="🔑  Password", label_visibility="collapsed")
         if st.button("🚀  LOGIN  →", use_container_width=True):
             if u in USERS and USERS[u]["password"] == p:
@@ -340,10 +318,10 @@ if not st.session_state.logged_in:
                 st.error("❌ Invalid credentials")
         st.markdown("""
         <div class="login-hint">
-            <span style="color:#4A5568;">
-            👑 <b style="color:#00D4FF;">admin</b> / admin123 — Full dashboard<br>
-            🏗️ <b style="color:#00D4FF;">engineer</b> / pwd123 — Monitor & manage<br>
-            👤 <b style="color:#00D4FF;">public</b> / pub123 — Submit reports
+            <span style="color:#2A3F55;">
+            👑 <b style="color:#00D4FF;">admin</b> / admin123 &nbsp;—&nbsp; Full dashboard<br>
+            🏗️ <b style="color:#00D4FF;">engineer</b> / pwd123 &nbsp;—&nbsp; Monitor & manage<br>
+            👤 <b style="color:#00D4FF;">public</b> / pub123 &nbsp;—&nbsp; Submit reports
             </span>
         </div>""", unsafe_allow_html=True)
 
