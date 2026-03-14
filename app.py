@@ -347,7 +347,8 @@ Rules:
             ]
         }
 
-        ANTHROPIC_API_KEY = "your-api-key-here"
+        ANTHROPIC_API_KEY = "your-api-key-here"  # 🔑 Replace with your key from console.anthropic.com
+
         try:
             req = urllib.request.Request(
                 "https://api.anthropic.com/v1/messages",
@@ -490,8 +491,15 @@ Rules:
 
             # Auto-load from file
             if not st.session_state.complaints and os.path.exists("output/complaints.json"):
-                with open("output/complaints.json") as f:
-                    st.session_state.complaints=json.load(f)
+                try:
+                    with open("output/complaints.json") as f:
+                        content = f.read().strip()
+                    if content:
+                        st.session_state.complaints = json.loads(content)
+                    else:
+                        st.session_state.complaints = []
+                except:
+                    st.session_state.complaints = []
                 st.session_state.detected_img="output/detected.jpg"
                 st.session_state.auto_running=True
                 st.session_state.last_cycle=datetime.now().isoformat()
