@@ -303,7 +303,7 @@ if not st.session_state.logged_in:
 
     _, col, _ = st.columns([1, 1.1, 1])
     with col:
-        st.markdown('<div style="margin-top:-158px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="margin-top:-108px;"></div>', unsafe_allow_html=True)
         u = st.text_input("u", placeholder="👤  Username", label_visibility="collapsed")
         p = st.text_input("p", type="password", placeholder="🔑  Password", label_visibility="collapsed")
         if st.button("🚀  LOGIN  →", use_container_width=True):
