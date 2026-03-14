@@ -144,7 +144,7 @@ def detect(image_path):
         gps_source = "SIMULATED"
         print("📡 No GPS in image — using CG highway simulation data")
 
-    model = YOLO("yolo11n.pt")
+    model = YOLO("best.pt")
     img   = cv2.imread(image_path)
     if img is None:
         print("❌ Image not found.")
@@ -194,7 +194,7 @@ def detect(image_path):
 
     # Fill up to 50 synthetic potholes
     random.shuffle(CG_LOCATIONS)
-    for i in range(50 - len(complaints)):
+    for i in range(100 - len(complaints)):
         idx = i % len(CG_LOCATIONS)
         loc = CG_LOCATIONS[idx]
 
