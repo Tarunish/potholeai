@@ -177,7 +177,7 @@ if not st.session_state.logged_in:
         }
 
         .login-wrap {
-            min-height: 80vh;
+            min-height: 50vh;
             display: flex;
             align-items: center;
             justify-content: center;
