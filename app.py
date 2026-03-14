@@ -599,322 +599,372 @@ Rules:
                 </div>""",unsafe_allow_html=True)
         with tabs[2]:
             st.markdown("### 🗺️ Pothole-Aware Navigation")
-            st.caption("Plan your route avoiding critical potholes — 🔴 pothole-prone route vs 🟢 safer route")
+            st.caption("Real-time pothole-aware routing — 🟢 safer route with live warnings & rerouting")
 
-            # Build pothole data from live complaints
+            import json as _json
             pothole_data = []
             for c in all_c:
                 risk = "critical" if c["severity"]=="Critical" else "medium" if c["severity"]=="Moderate" else "low"
-                pothole_data.append({
-                    "lat": c["gps"]["lat"],
-                    "lng": c["gps"]["lon"],
-                    "risk": risk,
-                    "location": c["location"]
-                })
+                pothole_data.append({"lat": c["gps"]["lat"], "lng": c["gps"]["lon"], "risk": risk, "location": c["location"]})
+            pothole_json = _json.dumps(pothole_data[:200])
 
-            import json as _json
-            pothole_json = _json.dumps(pothole_data)
-
-            nav_html = f"""
-<!DOCTYPE html>
+            nav_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-    <style>
-        * {{ box-sizing:border-box; margin:0; padding:0; }}
-        body {{ font-family:'Segoe UI',sans-serif; background:#1a1a2e; }}
-        #map {{ width:100%; height:580px; }}
-        .leaflet-routing-container {{ display:none !important; }}
-        #navPanel {{
-            position:absolute; top:15px; left:15px; z-index:1000;
-            background:rgba(15,20,45,0.97); border-radius:14px; padding:18px;
-            width:270px; box-shadow:0 8px 32px rgba(0,0,0,0.6);
-            border:1px solid rgba(126,200,227,0.15); color:#eee;
-        }}
-        #navPanel h2 {{ font-size:13px; margin-bottom:14px; color:#7ec8e3; letter-spacing:1px; text-transform:uppercase; font-weight:700; }}
-        .field-label {{ font-size:10px; color:#888; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:5px; }}
-        .loc-input {{
-            width:100%; background:rgba(255,255,255,0.06);
-            border:1px solid rgba(255,255,255,0.12); border-radius:8px;
-            padding:9px 11px; color:#fff; font-size:13px;
-            outline:none; margin-bottom:12px; transition:border 0.2s;
-        }}
-        .loc-input:focus {{ border-color:#7ec8e3; }}
-        .sugg-box {{
-            display:none; position:absolute; top:100%; left:0; right:0;
-            z-index:9999; background:#0f1430;
-            border:1px solid rgba(126,200,227,0.2); border-radius:8px;
-            max-height:150px; overflow-y:auto; margin-top:-10px;
-        }}
-        .sugg-box div {{ padding:8px 11px; font-size:12px; color:#bbb; cursor:pointer; border-bottom:1px solid rgba(255,255,255,0.04); }}
-        .sugg-box div:hover {{ background:rgba(126,200,227,0.1); color:#fff; }}
-        #startJourneyBtn {{
-            width:100%; padding:11px;
-            background:linear-gradient(135deg,#28a745,#20c997);
-            color:white; border:none; border-radius:8px;
-            font-size:14px; font-weight:700; cursor:pointer; margin-top:4px;
-        }}
-        #startJourneyBtn:hover {{ opacity:0.88; }}
-        #statusBar {{
-            display:none; position:absolute; bottom:22px; left:50%;
-            transform:translateX(-50%); z-index:1000;
-            background:rgba(15,20,45,0.94); color:#eee;
-            padding:10px 24px; border-radius:24px; font-size:13px;
-            border:1px solid rgba(255,255,255,0.08); white-space:nowrap;
-        }}
-        #potholeCard {{
-            display:none; position:fixed; bottom:30px; right:20px; z-index:9000;
-            background:rgba(15,20,45,0.97); border-radius:16px; padding:20px 22px;
-            width:280px; box-shadow:0 10px 40px rgba(0,0,0,0.6);
-            border:1px solid rgba(255,255,255,0.1); color:#eee;
-            animation:slideIn 0.3s ease;
-        }}
-        @keyframes slideIn {{ from {{ transform:translateX(120%); opacity:0; }} to {{ transform:translateX(0); opacity:1; }} }}
-        #potholeCard .risk-badge {{
-            display:inline-block; padding:4px 14px; border-radius:20px;
-            font-size:11px; font-weight:700; letter-spacing:1px;
-            text-transform:uppercase; margin-bottom:10px;
-        }}
-        #potholeCard h3 {{ font-size:15px; margin-bottom:8px; }}
-        #potholeCard p  {{ font-size:12px; color:#aaa; line-height:1.6; margin-bottom:14px; }}
-        .modal-btns {{ display:flex; gap:8px; }}
-        .modal-btn {{
-            padding:8px 16px; border:none; border-radius:8px;
-            font-size:12px; font-weight:700; cursor:pointer; flex:1;
-        }}
-        .btn-reroute  {{ background:linear-gradient(135deg,#28a745,#20c997); color:white; }}
-        .btn-continue {{ background:rgba(255,255,255,0.08); color:#ccc; border:1px solid rgba(255,255,255,0.12); }}
-    </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Pothole Navigation</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:'Segoe UI',sans-serif;background:#1a1a2e}}
+#map{{width:100%;height:570px}}
+.leaflet-routing-container{{display:none!important}}
+#navPanel{{position:absolute;top:15px;left:15px;z-index:1000;background:rgba(15,20,45,0.97);border-radius:14px;padding:18px;width:290px;box-shadow:0 8px 32px rgba(0,0,0,0.6);border:1px solid rgba(126,200,227,0.15);color:#eee}}
+#navPanel h2{{font-size:14px;margin-bottom:14px;color:#7ec8e3;letter-spacing:1px;text-transform:uppercase;font-weight:700}}
+.field-label{{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px}}
+.loc-input{{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:9px 11px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;transition:border 0.2s}}
+.loc-input:focus{{border-color:#7ec8e3}}
+.sugg-box{{display:none;position:absolute;top:100%;left:0;right:0;z-index:9999;background:#0f1430;border:1px solid rgba(126,200,227,0.2);border-radius:8px;max-height:150px;overflow-y:auto;margin-top:-10px}}
+.sugg-box div{{padding:8px 11px;font-size:12px;color:#bbb;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04)}}
+.sugg-box div:hover{{background:rgba(126,200,227,0.1);color:#fff}}
+#startJourneyBtn{{width:100%;padding:11px;background:linear-gradient(135deg,#28a745,#20c997);color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.5px;transition:opacity 0.2s;margin-top:4px}}
+#startJourneyBtn:hover{{opacity:0.88}}
+#toggleNav{{display:none;position:absolute;top:15px;left:15px;z-index:1001;background:rgba(15,20,45,0.95);border:1px solid rgba(126,200,227,0.2);border-radius:50%;width:46px;height:46px;font-size:19px;cursor:pointer;color:#7ec8e3;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.4)}}
+#statusBar{{display:none;position:absolute;bottom:22px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(15,20,45,0.94);color:#eee;padding:10px 24px;border-radius:24px;font-size:13px;border:1px solid rgba(255,255,255,0.08);white-space:nowrap}}
+#potholeCard{{display:none;position:absolute;bottom:30px;right:20px;z-index:9000;background:rgba(15,20,45,0.97);border-radius:16px;padding:20px 22px;width:300px;box-shadow:0 10px 40px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.1);color:#eee;animation:slideIn 0.3s ease}}
+@keyframes slideIn{{from{{transform:translateX(120%);opacity:0}}to{{transform:translateX(0);opacity:1}}}}
+#potholeCard .risk-badge{{display:inline-block;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}}
+#potholeCard h3{{font-size:16px;margin-bottom:8px}}
+#potholeCard p{{font-size:12px;color:#aaa;line-height:1.6;margin-bottom:14px}}
+.modal-btns{{display:flex;gap:8px;flex-wrap:wrap}}
+.modal-btn{{padding:8px 16px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:opacity 0.2s;flex:1}}
+.modal-btn:hover{{opacity:0.85}}
+.btn-reroute{{background:linear-gradient(135deg,#28a745,#20c997);color:white}}
+.btn-continue{{background:rgba(255,255,255,0.08);color:#ccc;border:1px solid rgba(255,255,255,0.12)}}
+</style>
 </head>
 <body>
+<button id="toggleNav" onclick="document.getElementById('navPanel').style.display='block';this.style.display='none';">🗺️</button>
 <div id="navPanel">
-    <h2>🚗 Pothole-Aware Navigation</h2>
-    <div class="field-label">📍 Starting Point</div>
-    <div style="position:relative;">
-        <input class="loc-input" id="startInput" type="text" placeholder="e.g. Raipur" autocomplete="off" />
-        <div class="sugg-box" id="startSugg"></div>
-    </div>
-    <div class="field-label">🏁 Destination</div>
-    <div style="position:relative;">
-        <input class="loc-input" id="endInput" type="text" placeholder="e.g. Bilaspur" autocomplete="off" />
-        <div class="sugg-box" id="endSugg"></div>
-    </div>
-    <button id="startJourneyBtn">🚀 Start Journey</button>
+  <h2>🚗 Pothole Navigation</h2>
+  <div class="field-label">📍 Starting Point</div>
+  <div style="position:relative">
+    <input class="loc-input" id="startInput" type="text" placeholder="e.g. Raipur" autocomplete="off"/>
+    <div class="sugg-box" id="startSugg"></div>
+  </div>
+  <div class="field-label">🏁 Destination</div>
+  <div style="position:relative">
+    <input class="loc-input" id="endInput" type="text" placeholder="e.g. Bilaspur" autocomplete="off"/>
+    <div class="sugg-box" id="endSugg"></div>
+  </div>
+  <button id="startJourneyBtn">🚀 Start Journey</button>
 </div>
 <div id="statusBar"></div>
 <div id="map"></div>
 <div id="potholeCard">
-    <div id="modalBadge" class="risk-badge"></div>
-    <h3 id="modalTitle">⚠ Pothole Ahead!</h3>
-    <p id="modalMsg"></p>
-    <div class="modal-btns" id="modalBtns"></div>
+  <div id="modalBadge" class="risk-badge"></div>
+  <h3 id="modalTitle">⚠ Pothole Detected Ahead!</h3>
+  <p id="modalMsg"></p>
+  <div class="modal-btns" id="modalBtns"></div>
 </div>
 <script>
-const POTHOLES = {pothole_json};
+var POTHOLES = {pothole_json};
 
-// ── Map setup ──
-const map = L.map('map').setView([21.2514, 81.6296], 7);
-L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-    attribution:'© OpenStreetMap', maxZoom:19
-}}).addTo(map);
+// --- Map ---
+var map = L.map('map').setView([21.2514,81.6296],7);
+L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png',{{maxZoom:19,attribution:'© OpenStreetMap'}}).addTo(map);
 
-// ── Plot potholes ──
-const riskColors = {{ critical:'#FF3D57', medium:'#FFB300', low:'#00E676' }};
-POTHOLES.forEach(p => {{
-    L.circleMarker([p.lat, p.lng], {{
-        radius: p.risk==='critical'?9:p.risk==='medium'?6:4,
-        color: riskColors[p.risk], fillColor: riskColors[p.risk],
-        fillOpacity:0.8, weight:2
-    }}).bindPopup(`<b>${{p.location}}</b><br>Risk: <b style="color:${{riskColors[p.risk]}}">${{p.risk.toUpperCase()}}</b>`).addTo(map);
+// --- Plot pothole markers ---
+POTHOLES.forEach(function(p){{
+  var c = p.risk==='critical'?'#FF3D57':p.risk==='medium'?'#FFB300':'#00E676';
+  var r = p.risk==='critical'?9:p.risk==='medium'?6:4;
+  L.circleMarker([p.lat,p.lng],{{radius:r,color:c,fillColor:c,fillOpacity:0.8,weight:2}})
+   .bindPopup('<b>'+p.location+'</b><br>Risk: <b style="color:'+c+'">'+p.risk.toUpperCase()+'</b>').addTo(map);
 }});
 
-// ── Hardcoded CG cities for instant lookup ──
-const CG_CITIES = {{
-    'raipur':      [21.2514, 81.6296],
-    'bilaspur':    [22.0797, 82.1391],
-    'durg':        [21.1902, 81.2849],
-    'bhilai':      [21.2090, 81.4285],
-    'korba':       [22.3595, 82.7501],
-    'raigarh':     [21.8974, 83.3950],
-    'jagdalpur':   [19.0737, 82.0309],
-    'ambikapur':   [23.1167, 83.2000],
-    'rajnandgaon': [21.0968, 81.0323],
-    'dhamtari':    [20.7099, 81.5494],
-    'mahasamund':  [21.6700, 82.5700],
-    'kanker':      [20.2700, 81.5200],
-    'kondagaon':   [20.5000, 81.6000],
-    'narayanpur':  [20.6100, 81.9600],
-    'naya raipur': [21.1300, 81.7300],
-}};
+// --- State ---
+var startLatLng=null, endLatLng=null;
+var routeCoordinates=[], origRouteCoords=[];
+var driver=null, currentStep=0, isPaused=false, moveTimeout=null;
+var ignoredPotholes=new Set(), revealedPotholes=new Set(), warnedPotholes=new Set();
+var origRouteLine=null, safeRouteLine=null;
 
-async function getCoords(val) {{
-    const key = val.toLowerCase().trim().split(',')[0].trim();
-    if (CG_CITIES[key]) return CG_CITIES[key];
-    try {{
-        const r = await Promise.race([
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${{encodeURIComponent(val)}}&limit=1`).then(r=>r.json()),
-            new Promise((_,reject) => setTimeout(()=>reject('timeout'), 4000))
-        ]);
-        if(r && r.length) return [parseFloat(r[0].lat), parseFloat(r[0].lon)];
-    }} catch(e) {{}}
-    return null;
+var navPanel=document.getElementById('navPanel');
+var toggleNav=document.getElementById('toggleNav');
+var statusBar=document.getElementById('statusBar');
+var potholeCard=document.getElementById('potholeCard');
+var modalBadge=document.getElementById('modalBadge');
+var modalTitle=document.getElementById('modalTitle');
+var modalMsg=document.getElementById('modalMsg');
+var modalBtns=document.getElementById('modalBtns');
+
+function showStatus(m){{statusBar.textContent=m;statusBar.style.display='block'}}
+function hideStatus(){{statusBar.style.display='none'}}
+function closeModal(){{potholeCard.style.display='none'}}
+
+// --- Modal ---
+function showModal(risk,distanceM,hasAlt,onReroute,onContinue){{
+  var colors={{CRITICAL:{{bg:'#b71c1c',text:'#ff6b6b'}},MEDIUM:{{bg:'#e65100',text:'#ffb74d'}},LOW:{{bg:'#1b5e20',text:'#66bb6a'}}}};
+  var c=colors[risk]||colors.LOW;
+  var emoji=risk==='CRITICAL'?'🔴':risk==='MEDIUM'?'🟡':'🟢';
+  var distLabel=distanceM>=1000?(distanceM/1000).toFixed(1)+' km ahead':Math.round(distanceM)+' m ahead';
+  modalBadge.textContent=emoji+' '+risk+' RISK · '+distLabel;
+  modalBadge.style.background=c.bg; modalBadge.style.color=c.text;
+  modalTitle.textContent='⚠ Pothole Detected Ahead!';
+  modalBtns.innerHTML='';
+  if(risk==='CRITICAL'){{
+    modalMsg.textContent=hasAlt?'🔴 CRITICAL pothole '+distLabel+'. Reroute recommended.':'🔴 CRITICAL pothole '+distLabel+'. Proceed with caution.';
+    if(hasAlt){{var r=document.createElement('button');r.className='modal-btn btn-reroute';r.textContent='🔄 Reroute (Recommended)';r.onclick=function(){{closeModal();onReroute()}};modalBtns.appendChild(r)}}
+    var cont=document.createElement('button');cont.className='modal-btn btn-continue';cont.textContent=hasAlt?'➡ Continue Anyway':'⚠ Proceed with Caution';cont.onclick=function(){{closeModal();onContinue()}};modalBtns.appendChild(cont);
+  }}else if(risk==='MEDIUM'){{
+    modalMsg.textContent=hasAlt?'🟡 MEDIUM risk pothole '+distLabel+'. Alternative available.':'🟡 MEDIUM risk pothole '+distLabel+'.';
+    if(hasAlt){{var r2=document.createElement('button');r2.className='modal-btn btn-reroute';r2.textContent='🔄 Reroute';r2.onclick=function(){{closeModal();onReroute()}};modalBtns.appendChild(r2)}}
+    var c2=document.createElement('button');c2.className='modal-btn btn-continue';c2.textContent='➡ Continue';c2.onclick=function(){{closeModal();onContinue()}};modalBtns.appendChild(c2);
+  }}else{{
+    modalMsg.textContent='🟢 LOW risk pothole '+distLabel+'. Auto-continuing in 3s.';
+    var ok=document.createElement('button');ok.className='modal-btn btn-continue';ok.textContent='👍 OK';ok.onclick=function(){{closeModal();onContinue()}};modalBtns.appendChild(ok);
+    setTimeout(function(){{if(potholeCard.style.display!=='none'){{closeModal();onContinue()}}}},3000);
+  }}
+  potholeCard.style.display='block';
 }}
 
-// ── Autocomplete ──
-function setupAutocomplete(inputId, suggId) {{
-    const inp = document.getElementById(inputId);
-    const box = document.getElementById(suggId);
-    inp.addEventListener('input', () => {{
-        const v = inp.value.toLowerCase().trim();
-        if (v.length < 2) {{ box.style.display='none'; return; }}
-        const matches = Object.keys(CG_CITIES).filter(c => c.startsWith(v));
-        box.innerHTML = '';
-        if (matches.length) {{
-            matches.forEach(city => {{
-                const d = document.createElement('div');
-                d.textContent = city.charAt(0).toUpperCase() + city.slice(1) + ', Chhattisgarh';
-                d.onclick = () => {{
-                    inp.value = d.textContent;
-                    inp.dataset.lat = CG_CITIES[city][0];
-                    inp.dataset.lon = CG_CITIES[city][1];
-                    box.style.display='none';
-                }};
-                box.appendChild(d);
+// --- Autocomplete with CG cities ---
+var CG_CITIES={{'raipur':[21.2514,81.6296],'bilaspur':[22.0797,82.1391],'durg':[21.1902,81.2849],'bhilai':[21.2090,81.4285],'korba':[22.3595,82.7501],'raigarh':[21.8974,83.3950],'jagdalpur':[19.0737,82.0309],'ambikapur':[23.1167,83.2000],'rajnandgaon':[21.0968,81.0323],'dhamtari':[20.7099,81.5494],'mahasamund':[21.6700,82.5700],'kanker':[20.2700,81.5200],'kondagaon':[20.5000,81.6000],'narayanpur':[20.6100,81.9600],'naya raipur':[21.1300,81.7300]}};
+var debounceTimer=null;
+
+function setupAutocomplete(inputId,suggId,onPick){{
+  var inp=document.getElementById(inputId), box=document.getElementById(suggId);
+  inp.addEventListener('input',function(){{
+    clearTimeout(debounceTimer);
+    var v=inp.value.toLowerCase().trim();
+    if(v.length<2){{box.style.display='none';return}}
+    var matches=Object.keys(CG_CITIES).filter(function(c){{return c.indexOf(v)===0}});
+    box.innerHTML='';
+    if(matches.length){{
+      matches.forEach(function(city){{
+        var d=document.createElement('div');
+        d.textContent=city.charAt(0).toUpperCase()+city.slice(1)+', CG';
+        d.onmousedown=function(e){{e.preventDefault();inp.value=d.textContent;box.style.display='none';onPick({{lat:CG_CITIES[city][0],lng:CG_CITIES[city][1]}});}};
+        box.appendChild(d);
+      }});
+      box.style.display='block';
+    }}else{{
+      debounceTimer=setTimeout(function(){{
+        fetch('https://nominatim.openstreetmap.org/search?format=json&limit=4&q='+encodeURIComponent(inp.value))
+          .then(function(r){{return r.json()}}).then(function(results){{
+            box.innerHTML='';
+            results.forEach(function(r){{
+              var d=document.createElement('div');d.textContent=r.display_name.substring(0,55);
+              d.onmousedown=function(e){{e.preventDefault();inp.value=d.textContent;box.style.display='none';onPick({{lat:parseFloat(r.lat),lng:parseFloat(r.lon)}});}};
+              box.appendChild(d);
             }});
-            box.style.display = 'block';
-        }} else {{ box.style.display='none'; }}
-    }});
-    document.addEventListener('click', e => {{ if(!inp.contains(e.target)) box.style.display='none'; }});
+            box.style.display=results.length?'block':'none';
+          }}).catch(function(){{box.style.display='none'}});
+      }},400);
+    }}
+  }});
+  inp.addEventListener('blur',function(){{setTimeout(function(){{box.style.display='none'}},200)}});
 }}
-setupAutocomplete('startInput','startSugg');
-setupAutocomplete('endInput','endSugg');
+setupAutocomplete('startInput','startSugg',function(ll){{startLatLng=L.latLng(ll.lat,ll.lng)}});
+setupAutocomplete('endInput','endSugg',function(ll){{endLatLng=L.latLng(ll.lat,ll.lng)}});
 
-// ── Routing ──
-let redLine=null, greenLine=null, carMarker=null, simInterval=null;
+// --- Journey Start ---
+document.getElementById('startJourneyBtn').addEventListener('click',function(){{
+  var st=document.getElementById('startInput').value.trim();
+  var en=document.getElementById('endInput').value.trim();
+  if(!st||!en){{alert('Enter both locations!');return}}
+  this.disabled=true;
+  showStatus('🔍 Looking up locations...');
 
-document.getElementById('startJourneyBtn').onclick = async () => {{
-    const si = document.getElementById('startInput');
-    const ei = document.getElementById('endInput');
-    let sLat = parseFloat(si.dataset.lat), sLon = parseFloat(si.dataset.lon);
-    let eLat = parseFloat(ei.dataset.lat), eLon = parseFloat(ei.dataset.lon);
+  function resolveCity(val,cached){{
+    if(cached) return Promise.resolve([{{lat:cached.lat,lon:cached.lng}}]);
+    var key=val.toLowerCase().split(',')[0].trim();
+    if(CG_CITIES[key]) return Promise.resolve([{{lat:CG_CITIES[key][0],lon:CG_CITIES[key][1]}}]);
+    return fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(val)).then(function(r){{return r.json()}});
+  }}
 
-    const sb = document.getElementById('statusBar');
-    sb.style.display='block'; sb.textContent='🔍 Finding locations...';
+  Promise.all([resolveCity(st,startLatLng),resolveCity(en,endLatLng)]).then(function(res){{
+    if(!res[0]||!res[0].length){{alert('Cannot find: '+st);document.getElementById('startJourneyBtn').disabled=false;hideStatus();return}}
+    if(!res[1]||!res[1].length){{alert('Cannot find: '+en);document.getElementById('startJourneyBtn').disabled=false;hideStatus();return}}
+    startLatLng=L.latLng(parseFloat(res[0][0].lat),parseFloat(res[0][0].lon||res[0][0].lng));
+    endLatLng=L.latLng(parseFloat(res[1][0].lat),parseFloat(res[1][0].lon||res[1][0].lng));
+    beginJourney();
+  }}).catch(function(){{alert('Network error.');document.getElementById('startJourneyBtn').disabled=false;hideStatus()}});
+}});
 
-    if (!sLat || isNaN(sLat)) {{
-        const coords = await getCoords(si.value);
-        if(!coords) {{ alert('❌ Start location not found. Try: Raipur, Bilaspur, Korba, Durg'); return; }}
-        sLat=coords[0]; sLon=coords[1];
-    }}
-    if (!eLat || isNaN(eLat)) {{
-        const coords = await getCoords(ei.value);
-        if(!coords) {{ alert('❌ Destination not found. Try: Raipur, Bilaspur, Korba, Durg'); return; }}
-        eLat=coords[0]; eLon=coords[1];
-    }}
+// --- Begin Journey via OSRM ---
+function beginJourney(){{
+  navPanel.style.display='none'; toggleNav.style.display='flex';
+  if(driver){{map.removeLayer(driver);driver=null}}
+  if(safeRouteLine){{map.removeLayer(safeRouteLine);safeRouteLine=null}}
+  if(origRouteLine){{map.removeLayer(origRouteLine);origRouteLine=null}}
+  currentStep=0; isPaused=false;
+  ignoredPotholes=new Set(); revealedPotholes=new Set(); warnedPotholes=new Set();
+  if(moveTimeout) clearTimeout(moveTimeout);
 
-    // Clear old layers
-    if(redLine)   map.removeLayer(redLine);
-    if(greenLine) map.removeLayer(greenLine);
-    if(carMarker) map.removeLayer(carMarker);
-    if(simInterval) clearInterval(simInterval);
+  showStatus('🗺️ Calculating safest route...');
+  var url='https://router.project-osrm.org/route/v1/driving/'+startLatLng.lng+','+startLatLng.lat+';'+endLatLng.lng+','+endLatLng.lat+'?alternatives=3&geometries=geojson&overview=full';
 
-    sb.textContent='🗺️ Drawing routes...';
+  fetch(url).then(function(r){{return r.json()}}).then(function(data){{
+    if(!data.routes||!data.routes.length){{alert('No route found');hideStatus();document.getElementById('startJourneyBtn').disabled=false;return}}
 
-    // Build paths
-    const steps = 30;
-    const redPath   = [], greenPath = [];
-    for(let i=0; i<=steps; i++) {{
-        const t = i/steps;
-        // Red route — direct (pothole-prone)
-        redPath.push([sLat+(eLat-sLat)*t, sLon+(eLon-sLon)*t]);
-        // Green route — slight detour (safer)
-        const bulge = Math.sin(Math.PI*t)*0.15;
-        greenPath.push([
-            sLat+(eLat-sLat)*t + bulge*0.3,
-            sLon+(eLon-sLon)*t + bulge*0.3
-        ]);
-    }}
-
-    // Draw red route 🔴
-    redLine = L.polyline(redPath, {{
-        color:'#FF3D57', weight:5, opacity:0.8,
-        dashArray:'10,6'
-    }}).addTo(map);
-    redLine.bindTooltip('🔴 Pothole-prone route', {{permanent:false}});
-
-    // Draw green route 🟢
-    greenLine = L.polyline(greenPath, {{
-        color:'#00E676', weight:5, opacity:0.9
-    }}).addTo(map);
-    greenLine.bindTooltip('🟢 Safer route', {{permanent:false}});
-
-    // Fit map to show both routes
-    map.fitBounds(L.latLngBounds([...redPath, ...greenPath]), {{padding:[40,40]}});
-
-    // Add start/end markers
-    L.marker([sLat,sLon]).bindPopup('📍 Start').addTo(map).openPopup();
-    L.marker([eLat,eLon]).bindPopup('🏁 Destination').addTo(map);
-
-    sb.textContent='🚗 Simulating journey on safer route...';
-
-    // Animate car along green (safer) route
-    const carIcon = L.divIcon({{className:'', html:'<div style="font-size:22px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))">🚗</div>', iconSize:[28,28]}});
-    carMarker = L.marker(greenPath[0], {{icon:carIcon, zIndexOffset:1000}}).addTo(map);
-
-    let step = 0;
-    let warned = new Set();
-
-    simInterval = setInterval(() => {{
-        if(step >= greenPath.length) {{
-            clearInterval(simInterval);
-            sb.textContent='✅ Journey complete! Avoided ' + warned.size + ' potholes.';
-            sb.style.background='rgba(0,230,118,0.15)';
-            sb.style.borderColor='rgba(0,230,118,0.4)';
-            return;
-        }}
-        carMarker.setLatLng(greenPath[step]);
-
-        // Warn about nearby potholes
-        POTHOLES.forEach((p,idx) => {{
-            if(warned.has(idx)) return;
-            const d = Math.sqrt(
-                Math.pow(greenPath[step][0]-p.lat,2) +
-                Math.pow(greenPath[step][1]-p.lng,2)
-            );
-            if(d < 0.12) {{
-                warned.add(idx);
-                showPotholeCard(p, d);
-            }}
+    // Score routes by pothole proximity
+    var scored=data.routes.map(function(route){{
+      var coords=route.geometry.coordinates;
+      var score=0;
+      coords.forEach(function(coord){{
+        POTHOLES.forEach(function(p){{
+          var d=map.distance([coord[1],coord[0]],[p.lat,p.lng]);
+          if(d<1500) score+=(p.risk==='critical'?10:p.risk==='medium'?5:1);
         }});
-        step++;
-    }}, 400);
-}};
+      }});
+      return {{route:route,score:score}};
+    }});
+    scored.sort(function(a,b){{return a.score-b.score}});
 
-function showPotholeCard(p, dist) {{
-    const card = document.getElementById('potholeCard');
-    const badge = document.getElementById('modalBadge');
-    const msg   = document.getElementById('modalMsg');
-    const btns  = document.getElementById('modalBtns');
-    const colors= {{ critical:'#FF3D57', medium:'#FFB300', low:'#00E676' }};
-    const km    = (dist*111).toFixed(1);
+    var safeRoute=scored[0].route;
+    var riskyRoute=scored[scored.length-1].route;
 
-    badge.style.background = colors[p.risk]+'33';
-    badge.style.color = colors[p.risk];
-    badge.style.border = `1px solid ${{colors[p.risk]}}`;
-    badge.textContent = p.risk.toUpperCase();
+    // Draw risky route red dashed
+    var redCoords=riskyRoute.geometry.coordinates.map(function(c){{return[c[1],c[0]]}});
+    origRouteLine=L.polyline(redCoords,{{color:'#f44336',weight:5,opacity:0.7,dashArray:'10,6'}}).addTo(map);
+    origRouteLine.bindTooltip('🔴 Pothole-prone route',{{sticky:true}});
+    origRouteCoords=redCoords.map(function(c){{return{{lat:c[0],lng:c[1]}}}});
 
-    msg.textContent = `${{p.location}} — ${{km}} km ahead. Severity: ${{p.risk}}.`;
-    btns.innerHTML = `
-        <button class="modal-btn btn-reroute" onclick="document.getElementById('potholeCard').style.display='none'">🔄 Reroute</button>
-        <button class="modal-btn btn-continue" onclick="document.getElementById('potholeCard').style.display='none'">➡️ Continue</button>
-    `;
-    card.style.display='block';
-    setTimeout(()=>{{ card.style.display='none'; }}, 6000);
+    // Draw safe route green
+    var greenCoords=safeRoute.geometry.coordinates.map(function(c){{return[c[1],c[0]]}});
+    safeRouteLine=L.polyline(greenCoords,{{color:'#00c853',weight:7,opacity:0.95}}).addTo(map);
+    safeRouteLine.bindTooltip('🟢 Safer route selected',{{sticky:true}});
+    routeCoordinates=greenCoords.map(function(c){{return{{lat:c[0],lng:c[1]}}}});
+
+    map.fitBounds(safeRouteLine.getBounds(),{{padding:[40,40]}});
+
+    // Place car
+    var carSVG='<div style="font-size:24px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));transition:transform 0.15s">🚗</div>';
+    driver=L.marker(routeCoordinates[0],{{icon:L.divIcon({{className:'',html:carSVG,iconSize:[28,28],iconAnchor:[14,14]}}),zIndexOffset:1000}}).addTo(map);
+
+    showStatus('🟢 Safer route selected! Starting journey...');
+    setTimeout(function(){{hideStatus();moveDriver()}},1500);
+    document.getElementById('startJourneyBtn').disabled=false;
+  }}).catch(function(e){{
+    showStatus('⚠ OSRM unavailable — using direct route');
+    fallbackRoute();
+    document.getElementById('startJourneyBtn').disabled=false;
+  }});
+}}
+
+// --- Fallback if OSRM fails ---
+function fallbackRoute(){{
+  var steps=40, sL=startLatLng, eL=endLatLng;
+  var greenCoords=[], redCoords=[];
+  for(var i=0;i<=steps;i++){{
+    var t=i/steps;
+    var bulge=Math.sin(Math.PI*t)*0.12;
+    greenCoords.push({{lat:sL.lat+(eL.lat-sL.lat)*t+bulge*0.3, lng:sL.lng+(eL.lng-sL.lng)*t+bulge*0.3}});
+    redCoords.push({{lat:sL.lat+(eL.lat-sL.lat)*t, lng:sL.lng+(eL.lng-sL.lng)*t}});
+  }}
+  safeRouteLine=L.polyline(greenCoords.map(function(c){{return[c.lat,c.lng]}}),{{color:'#00c853',weight:7,opacity:0.95}}).addTo(map).bindTooltip('🟢 Safer route');
+  origRouteLine=L.polyline(redCoords.map(function(c){{return[c.lat,c.lng]}}),{{color:'#f44336',weight:5,opacity:0.7,dashArray:'10,6'}}).addTo(map).bindTooltip('🔴 Pothole-prone route');
+  routeCoordinates=greenCoords;
+  origRouteCoords=redCoords;
+  map.fitBounds(safeRouteLine.getBounds(),{{padding:[40,40]}});
+  var carSVG='<div style="font-size:24px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6))">🚗</div>';
+  driver=L.marker([routeCoordinates[0].lat,routeCoordinates[0].lng],{{icon:L.divIcon({{className:'',html:carSVG,iconSize:[28,28],iconAnchor:[14,14]}}),zIndexOffset:1000}}).addTo(map);
+  moveDriver();
+}}
+
+// --- Move driver ---
+var LOOK_AHEAD=150, ON_ROUTE=1500, WARN_DIST=1500;
+function moveDriver(){{
+  if(isPaused||!driver) return;
+  if(currentStep>=routeCoordinates.length-1){{
+    showStatus('✅ Journey complete! Destination reached.');
+    return;
+  }}
+  var pt=routeCoordinates[currentStep];
+  driver.setLatLng([pt.lat,pt.lng]);
+
+  // Rotate car
+  if(currentStep<routeCoordinates.length-1){{
+    var next=routeCoordinates[currentStep+1];
+    var bearing=Math.atan2(next.lng-pt.lng,next.lat-pt.lat)*180/Math.PI;
+    driver.setIcon(L.divIcon({{className:'',html:'<div style="font-size:24px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));transform:rotate('+bearing+'deg)">🚗</div>',iconSize:[28,28],iconAnchor:[14,14]}}));
+  }}
+
+  checkPotholeAhead(pt);
+  if(!isPaused){{currentStep++;moveTimeout=setTimeout(moveDriver,180)}}
+}}
+
+// --- Pothole detection ---
+function checkPotholeAhead(pos){{
+  if(isPaused) return;
+  var endIdx=Math.min(currentStep+LOOK_AHEAD,routeCoordinates.length);
+  POTHOLES.forEach(function(p){{
+    if(isPaused) return;
+    var key=p.lat+','+p.lng;
+    if(ignoredPotholes.has(key)) return;
+    var onPath=false;
+    for(var i=currentStep;i<endIdx;i++){{
+      if(map.distance([routeCoordinates[i].lat,routeCoordinates[i].lng],[p.lat,p.lng])<=ON_ROUTE){{onPath=true;break}}
+    }}
+    if(!onPath) return;
+    var dist=map.distance([pos.lat,pos.lng],[p.lat,p.lng]);
+    if(dist<=WARN_DIST&&!warnedPotholes.has(key)){{
+      warnedPotholes.add(key); isPaused=true;
+      // Show pothole marker
+      L.marker([p.lat,p.lng],{{icon:L.divIcon({{className:'',html:'<div style="font-size:20px">🕳️</div>',iconSize:[24,24]}})}}). addTo(map).bindPopup('⚠ '+p.risk.toUpperCase()+' pothole!').openPopup();
+      // Draw red path through pothole
+      var redPath=[[pos.lat,pos.lng],[p.lat,p.lng]];
+      var potholeOverlay=L.polyline(redPath,{{color:'#f44336',weight:8,opacity:1.0}}).addTo(map).bindTooltip('🔴 Danger path');
+      showPotholeWarning(p,dist,potholeOverlay,key);
+    }}
+  }});
+}}
+
+// --- Warning ---
+function showPotholeWarning(p,distanceM,overlay,key){{
+  var risk=(p.risk||'low').toUpperCase();
+  showModal(risk,distanceM,true,
+    function(){{
+      // REROUTE — call OSRM from car position
+      showStatus('🔄 Calculating new route...');
+      if(overlay){{map.removeLayer(overlay)}}
+      var carPos=driver.getLatLng();
+      var url='https://router.project-osrm.org/route/v1/driving/'+carPos.lng+','+carPos.lat+';'+endLatLng.lng+','+endLatLng.lat+'?alternatives=3&geometries=geojson&overview=full';
+      fetch(url).then(function(r){{return r.json()}}).then(function(data){{
+        if(!data.routes||!data.routes.length){{throw new Error('no route')}};
+        var bestAlt=data.routes[0];
+        for(var i=0;i<data.routes.length;i++){{
+          var hit=false;
+          data.routes[i].geometry.coordinates.forEach(function(c){{
+            if(map.distance([c[1],c[0]],[p.lat,p.lng])<200) hit=true;
+          }});
+          if(!hit){{bestAlt=data.routes[i];break}}
+        }}
+        if(safeRouteLine){{map.removeLayer(safeRouteLine)}}
+        var newCoords=bestAlt.geometry.coordinates.map(function(c){{return{{lat:c[1],lng:c[0]}}}});
+        safeRouteLine=L.polyline(newCoords.map(function(c){{return[c.lat,c.lng]}}),{{color:'#00c853',weight:7,opacity:0.95}}).addTo(map).bindTooltip('🟢 New safe route');
+        routeCoordinates=newCoords; currentStep=0;
+        ignoredPotholes.add(key); isPaused=false;
+        showStatus('✅ Rerouted! Resuming...');
+        setTimeout(hideStatus,2500);
+        moveDriver();
+      }}).catch(function(){{
+        ignoredPotholes.add(key); isPaused=false; moveDriver();
+        showStatus('⚠ Reroute failed, continuing...');
+        setTimeout(hideStatus,2000);
+      }});
+    }},
+    function(){{
+      // CONTINUE — follow red path through pothole
+      if(safeRouteLine){{map.removeLayer(safeRouteLine);safeRouteLine=null}}
+      ignoredPotholes.add(key); isPaused=false; moveDriver();
+    }}
+  );
 }}
 </script>
 </body>
