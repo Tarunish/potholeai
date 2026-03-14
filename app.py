@@ -465,8 +465,12 @@ Rules:
                     with st.spinner("Running YOLOv11..."):
                         detect("pothole.jpg"); time.sleep(1)
                     if os.path.exists("output/complaints.json"):
-                        with open("output/complaints.json") as f:
-                            st.session_state.complaints=json.load(f)
+                        try:
+                            with open("output/complaints.json") as f:
+                                content = f.read().strip()
+                            st.session_state.complaints = json.loads(content) if content else []
+                        except:
+                            st.session_state.complaints = []
                         st.session_state.detected_img="output/detected.jpg"
                         st.session_state.auto_running=True
                         st.session_state.last_cycle=datetime.now().isoformat()
@@ -482,8 +486,12 @@ Rules:
                     with st.spinner("YOLOv11 scanning..."):
                         detect("pothole.jpg"); time.sleep(1)
                     if os.path.exists("output/complaints.json"):
-                        with open("output/complaints.json") as f:
-                            st.session_state.complaints=json.load(f)
+                        try:
+                            with open("output/complaints.json") as f:
+                                content = f.read().strip()
+                            st.session_state.complaints = json.loads(content) if content else []
+                        except:
+                            st.session_state.complaints = []
                         st.session_state.detected_img="output/detected.jpg"
                         st.session_state.auto_running=True
                         st.session_state.last_cycle=datetime.now().isoformat()
