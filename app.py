@@ -733,30 +733,61 @@ POTHOLES.forEach(p => {{
     }}).bindPopup(`<b>${{p.location}}</b><br>Risk: <b style="color:${{riskColors[p.risk]}}">${{p.risk.toUpperCase()}}</b>`).addTo(map);
 }});
 
-// ── Geocode ──
-async function geocode(q) {{
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${{encodeURIComponent(q)}}&limit=5`);
-    return await r.json();
+// ── Hardcoded CG cities for instant lookup ──
+const CG_CITIES = {{
+    'raipur':      [21.2514, 81.6296],
+    'bilaspur':    [22.0797, 82.1391],
+    'durg':        [21.1902, 81.2849],
+    'bhilai':      [21.2090, 81.4285],
+    'korba':       [22.3595, 82.7501],
+    'raigarh':     [21.8974, 83.3950],
+    'jagdalpur':   [19.0737, 82.0309],
+    'ambikapur':   [23.1167, 83.2000],
+    'rajnandgaon': [21.0968, 81.0323],
+    'dhamtari':    [20.7099, 81.5494],
+    'mahasamund':  [21.6700, 82.5700],
+    'kanker':      [20.2700, 81.5200],
+    'kondagaon':   [20.5000, 81.6000],
+    'narayanpur':  [20.6100, 81.9600],
+    'naya raipur': [21.1300, 81.7300],
+}};
+
+async function getCoords(val) {{
+    const key = val.toLowerCase().trim().split(',')[0].trim();
+    if (CG_CITIES[key]) return CG_CITIES[key];
+    try {{
+        const r = await Promise.race([
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${{encodeURIComponent(val)}}&limit=1`).then(r=>r.json()),
+            new Promise((_,reject) => setTimeout(()=>reject('timeout'), 4000))
+        ]);
+        if(r && r.length) return [parseFloat(r[0].lat), parseFloat(r[0].lon)];
+    }} catch(e) {{}}
+    return null;
 }}
 
 // ── Autocomplete ──
 function setupAutocomplete(inputId, suggId) {{
     const inp = document.getElementById(inputId);
     const box = document.getElementById(suggId);
-    inp.addEventListener('input', async () => {{
-        const v = inp.value.trim();
-        if (v.length < 3) {{ box.style.display='none'; return; }}
-        const res = await geocode(v);
+    inp.addEventListener('input', () => {{
+        const v = inp.value.toLowerCase().trim();
+        if (v.length < 2) {{ box.style.display='none'; return; }}
+        const matches = Object.keys(CG_CITIES).filter(c => c.startsWith(v));
         box.innerHTML = '';
-        if (res.length) {{
-            res.forEach(r => {{
+        if (matches.length) {{
+            matches.forEach(city => {{
                 const d = document.createElement('div');
-                d.textContent = r.display_name.substring(0,60);
-                d.onclick = () => {{ inp.value = r.display_name.substring(0,60); inp.dataset.lat=r.lat; inp.dataset.lon=r.lon; box.style.display='none'; }};
+                d.textContent = city.charAt(0).toUpperCase() + city.slice(1) + ', Chhattisgarh';
+                d.onclick = () => {{
+                    inp.value = d.textContent;
+                    inp.dataset.lat = CG_CITIES[city][0];
+                    inp.dataset.lon = CG_CITIES[city][1];
+                    box.style.display='none';
+                }};
                 box.appendChild(d);
             }});
             box.style.display = 'block';
-        }}
+        }} else {{ box.style.display='none'; }}
     }});
     document.addEventListener('click', e => {{ if(!inp.contains(e.target)) box.style.display='none'; }});
 }}
@@ -776,14 +807,14 @@ document.getElementById('startJourneyBtn').onclick = async () => {{
     sb.style.display='block'; sb.textContent='🔍 Finding locations...';
 
     if (!sLat || isNaN(sLat)) {{
-        const r = await geocode(si.value);
-        if(!r.length) {{ alert('❌ Start location not found. Try: Raipur, Chhattisgarh'); return; }}
-        sLat=parseFloat(r[0].lat); sLon=parseFloat(r[0].lon);
+        const coords = await getCoords(si.value);
+        if(!coords) {{ alert('❌ Start location not found. Try: Raipur, Bilaspur, Korba, Durg'); return; }}
+        sLat=coords[0]; sLon=coords[1];
     }}
     if (!eLat || isNaN(eLat)) {{
-        const r = await geocode(ei.value);
-        if(!r.length) {{ alert('❌ Destination not found. Try: Bilaspur, Chhattisgarh'); return; }}
-        eLat=parseFloat(r[0].lat); eLon=parseFloat(r[0].lon);
+        const coords = await getCoords(ei.value);
+        if(!coords) {{ alert('❌ Destination not found. Try: Raipur, Bilaspur, Korba, Durg'); return; }}
+        eLat=coords[0]; eLon=coords[1];
     }}
 
     // Clear old layers
