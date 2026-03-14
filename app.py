@@ -190,7 +190,7 @@ if not st.session_state.logged_in:
             background: rgba(8,14,26,0.97);
             border-radius: 20px;
             border: 1px solid rgba(0,212,255,0.15);
-            padding: 44px 40px 36px;
+            padding: 20px 40px 20px;
             text-align: center;
             box-shadow:
                 0 0 80px rgba(0,212,255,0.06),
@@ -210,25 +210,25 @@ if not st.session_state.logged_in:
         }
 
         .login-logo {
-            width: 110px;
-            height: 110px;
+            width: 75px;
+            height: 75px;
             border-radius: 50%;
             border: 2px solid rgba(0,212,255,0.5);
             box-shadow:
                 0 0 0 6px rgba(0,212,255,0.05),
                 0 0 30px rgba(0,212,255,0.25);
-            margin: 0 auto 20px;
+            margin: 0 auto 10px;
             display: block;
             overflow: hidden;
         }
 
         .login-brand {
             font-family: 'Arial Black', sans-serif;
-            font-size: 40px;
+            font-size: 30px;
             font-weight: 900;
             letter-spacing: 2px;
             line-height: 1;
-            margin: 0 0 6px;
+            margin: 0 0 4px;
         }
 
         .login-sub {
@@ -236,13 +236,13 @@ if not st.session_state.logged_in:
             letter-spacing: 3px;
             color: #253545;
             text-transform: uppercase;
-            margin-bottom: 28px;
+            margin-bottom: 12px;
         }
 
         .login-divider {
             height: 1px;
             background: linear-gradient(90deg,transparent,rgba(0,212,255,0.15),transparent);
-            margin-bottom: 24px;
+            margin-bottom: 12px;
         }
 
         .login-hint {
@@ -303,7 +303,7 @@ if not st.session_state.logged_in:
 
     _, col, _ = st.columns([1, 1.1, 1])
     with col:
-        st.markdown('<div style="margin-top:-60px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="margin-top:-30px;"></div>', unsafe_allow_html=True)
         u = st.text_input("u", placeholder="👤  Username", label_visibility="collapsed")
         p = st.text_input("p", type="password", placeholder="🔑  Password", label_visibility="collapsed")
         if st.button("🚀  LOGIN  →", use_container_width=True):
