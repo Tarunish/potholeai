@@ -58,23 +58,19 @@ section[data-testid="stSidebar"] *  { color: var(--text) !important; }
 /* ── HIDE STREAMLIT CHROME ── */
 #MainMenu, footer { visibility: hidden !important; }
 
-/* Collapse header height but keep it in DOM so toggle button works */
+/* Make header invisible but keep it in DOM — visibility CAN be overridden on children, display:none cannot */
 header {
-    height: 0 !important;
-    min-height: 0 !important;
-    padding: 0 !important;
+    visibility: hidden !important;
     background: transparent !important;
-    overflow: visible !important;
 }
 
-/* Hide everything inside header EXCEPT the sidebar toggle */
-header > * { display: none !important; }
-
-/* ── SIDEBAR TOGGLE — always on top, always clickable ── */
+/* ── SIDEBAR TOGGLE — override parent visibility, always fixed on screen ── */
 [data-testid="collapsedControl"] {
-    display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     pointer-events: auto !important;
     position: fixed !important;
     top: 0.5rem !important;
@@ -85,13 +81,11 @@ header > * { display: none !important; }
     border-radius: 8px !important;
     width: 2.2rem !important;
     height: 2.2rem !important;
-    align-items: center !important;
-    justify-content: center !important;
     cursor: pointer !important;
 }
-[data-testid="collapsedControl"] svg {
-    display: block !important;
+[data-testid="collapsedControl"] * {
     visibility: visible !important;
+    display: block !important;
     color: var(--accent) !important;
     fill: var(--accent) !important;
 }
