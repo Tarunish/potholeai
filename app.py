@@ -57,36 +57,45 @@ section[data-testid="stSidebar"] *  { color: var(--text) !important; }
 
 /* ── HIDE STREAMLIT CHROME ── */
 #MainMenu, footer { visibility: hidden !important; }
-header { visibility: hidden !important; }
 
-/* ── SIDEBAR TOGGLE (always visible & clickable) ── */
+/* Collapse header height but keep it in DOM so toggle button works */
+header {
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+}
+
+/* Hide everything inside header EXCEPT the sidebar toggle */
+header > * { display: none !important; }
+
+/* ── SIDEBAR TOGGLE — always on top, always clickable ── */
 [data-testid="collapsedControl"] {
-    visibility: visible !important;
     display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
     position: fixed !important;
-    top: 0.6rem !important;
-    left: 0.6rem !important;
+    top: 0.5rem !important;
+    left: 0.5rem !important;
     z-index: 9999999 !important;
     background: var(--bg2) !important;
     border: 1px solid var(--border) !important;
     border-radius: 8px !important;
-    width: 2rem !important;
-    height: 2rem !important;
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+    align-items: center !important;
+    justify-content: center !important;
     cursor: pointer !important;
-    pointer-events: all !important;
 }
 [data-testid="collapsedControl"] svg {
-    visibility: visible !important;
     display: block !important;
+    visibility: visible !important;
     color: var(--accent) !important;
     fill: var(--accent) !important;
 }
-section[data-testid="stSidebar"] {
-    display: block !important;
-}
-[data-testid="stDecoration"]        { display: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
 
 /* ── TABS ── */
 .stTabs [data-baseweb="tab-list"]   {
