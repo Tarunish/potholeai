@@ -57,15 +57,7 @@ section[data-testid="stSidebar"] *  { color: var(--text) !important; }
 
 /* ── HIDE STREAMLIT CHROME ── */
 #MainMenu, footer { visibility: hidden !important; }
-[data-testid="stToolbar"] { display: none !important; }
 [data-testid="stDecoration"] { display: none !important; }
-
-/* Make header same color as background so it's invisible — do NOT use visibility/display hidden */
-header[data-testid="stHeader"] {
-    background-color: #0A0F1E !important;
-    height: 0rem !important;
-    min-height: 0rem !important;
-}
 
 /* ── TABS ── */
 .stTabs [data-baseweb="tab-list"]   {
