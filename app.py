@@ -57,39 +57,15 @@ section[data-testid="stSidebar"] *  { color: var(--text) !important; }
 
 /* ── HIDE STREAMLIT CHROME ── */
 #MainMenu, footer { visibility: hidden !important; }
-
-/* Make header invisible but keep it in DOM — visibility CAN be overridden on children, display:none cannot */
-header {
-    visibility: hidden !important;
-    background: transparent !important;
-}
-
-/* ── SIDEBAR TOGGLE — override parent visibility, always fixed on screen ── */
-[data-testid="collapsedControl"] {
-    visibility: visible !important;
-    opacity: 1 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    pointer-events: auto !important;
-    position: fixed !important;
-    top: 0.5rem !important;
-    left: 0.5rem !important;
-    z-index: 9999999 !important;
-    background: var(--bg2) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
-    width: 2.2rem !important;
-    height: 2.2rem !important;
-    cursor: pointer !important;
-}
-[data-testid="collapsedControl"] * {
-    visibility: visible !important;
-    display: block !important;
-    color: var(--accent) !important;
-    fill: var(--accent) !important;
-}
+[data-testid="stToolbar"] { display: none !important; }
 [data-testid="stDecoration"] { display: none !important; }
+
+/* Make header same color as background so it's invisible — do NOT use visibility/display hidden */
+header[data-testid="stHeader"] {
+    background-color: #0A0F1E !important;
+    height: 0rem !important;
+    min-height: 0rem !important;
+}
 
 /* ── TABS ── */
 .stTabs [data-baseweb="tab-list"]   {
