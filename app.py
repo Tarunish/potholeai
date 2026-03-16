@@ -56,7 +56,36 @@ section[data-testid="stSidebar"]    { background: var(--bg2) !important; border-
 section[data-testid="stSidebar"] *  { color: var(--text) !important; }
 
 /* ── HIDE STREAMLIT CHROME ── */
-#MainMenu, footer, header           { visibility: hidden !important; }
+#MainMenu, footer { visibility: hidden !important; }
+header { visibility: hidden !important; }
+
+/* ── SIDEBAR TOGGLE (always visible & clickable) ── */
+[data-testid="collapsedControl"] {
+    visibility: visible !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: fixed !important;
+    top: 0.6rem !important;
+    left: 0.6rem !important;
+    z-index: 9999999 !important;
+    background: var(--bg2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    width: 2rem !important;
+    height: 2rem !important;
+    cursor: pointer !important;
+    pointer-events: all !important;
+}
+[data-testid="collapsedControl"] svg {
+    visibility: visible !important;
+    display: block !important;
+    color: var(--accent) !important;
+    fill: var(--accent) !important;
+}
+section[data-testid="stSidebar"] {
+    display: block !important;
+}
 [data-testid="stDecoration"]        { display: none !important; }
 
 /* ── TABS ── */
