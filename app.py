@@ -1,5 +1,5 @@
 import streamlit as st
-import json, os, time, random, cv2
+import json, os, time, random, cv2, sqlite3
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -21,6 +21,123 @@ try:
     from reportlab.lib.enums import TA_CENTER
     REPORTLAB_OK = True
 except: REPORTLAB_OK = False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SQLITE DATABASE LAYER
+# ══════════════════════════════════════════════════════════════════════════════
+DB_PATH = "potholeai.db"
+
+def db_connect():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def db_init():
+    conn = db_connect()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS complaints (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            pothole_id      TEXT UNIQUE NOT NULL,
+            location        TEXT,
+            district        TEXT,
+            road            TEXT,
+            highway_km      TEXT,
+            severity        TEXT,
+            confidence      REAL,
+            status          TEXT DEFAULT 'Filed',
+            gps_lat         REAL,
+            gps_lon         REAL,
+            assigned_to     TEXT DEFAULT 'PWD',
+            complaint_filed_at  TEXT,
+            detected_at         TEXT,
+            re_scan_due         TEXT,
+            auto_verified_at    TEXT,
+            auto_escalated_at   TEXT,
+            created_at      TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS gps_sessions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            lat         REAL,
+            lon         REAL,
+            accuracy    REAL,
+            captured_at TEXT DEFAULT (datetime('now','localtime'))
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def db_save_complaints(complaints):
+    conn = db_connect()
+    for c in complaints:
+        conn.execute("""
+            INSERT INTO complaints
+                (pothole_id, location, district, road, highway_km, severity,
+                 confidence, status, gps_lat, gps_lon, assigned_to,
+                 complaint_filed_at, detected_at, re_scan_due,
+                 auto_verified_at, auto_escalated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(pothole_id) DO UPDATE SET
+                status             = excluded.status,
+                auto_verified_at   = excluded.auto_verified_at,
+                auto_escalated_at  = excluded.auto_escalated_at
+        """, (
+            c.get("pothole_id"), c.get("location"), c.get("district"),
+            c.get("road"), c.get("highway_km"), c.get("severity"),
+            c.get("confidence"), c.get("status"),
+            c.get("gps", {}).get("lat"), c.get("gps", {}).get("lon"),
+            c.get("assigned_to","PWD"),
+            c.get("complaint_filed_at"), c.get("detected_at"),
+            c.get("re_scan_due"),
+            c.get("auto_verified_at"), c.get("auto_escalated_at"),
+        ))
+    conn.commit()
+    conn.close()
+
+def db_load_complaints():
+    conn = db_connect()
+    rows = conn.execute("SELECT * FROM complaints ORDER BY created_at DESC").fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        result.append({
+            "pothole_id":           r["pothole_id"],
+            "location":             r["location"],
+            "district":             r["district"],
+            "road":                 r["road"],
+            "highway_km":           r["highway_km"],
+            "severity":             r["severity"],
+            "confidence":           r["confidence"],
+            "status":               r["status"],
+            "gps":                  {"lat": r["gps_lat"], "lon": r["gps_lon"]},
+            "assigned_to":          r["assigned_to"],
+            "complaint_filed_at":   r["complaint_filed_at"],
+            "detected_at":          r["detected_at"],
+            "re_scan_due":          r["re_scan_due"],
+            "auto_verified_at":     r["auto_verified_at"],
+            "auto_escalated_at":    r["auto_escalated_at"],
+        })
+    return result
+
+def db_save_gps(lat, lon, accuracy):
+    conn = db_connect()
+    conn.execute("INSERT INTO gps_sessions (lat, lon, accuracy) VALUES (?,?,?)",
+                 (lat, lon, accuracy))
+    conn.commit()
+    conn.close()
+
+def db_get_last_gps():
+    conn = db_connect()
+    row = conn.execute("SELECT * FROM gps_sessions ORDER BY id DESC LIMIT 1").fetchone()
+    conn.close()
+    if row:
+        return {"lat": row["lat"], "lon": row["lon"], "accuracy": row["accuracy"],
+                "captured_at": row["captured_at"]}
+    return None
+
+db_init()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE CONFIG + THEME
@@ -525,6 +642,7 @@ Rules:
     if st.session_state.auto_running and st.session_state.last_cycle:
         if (datetime.now()-datetime.fromisoformat(st.session_state.last_cycle)).total_seconds()>=CYCLE:
             run_auto_cycle()
+            db_save_complaints(st.session_state.complaints)
             if os.path.exists("output/complaints.json"):
                 with open("output/complaints.json","w") as f:
                     json.dump(st.session_state.complaints,f,indent=2)
@@ -567,6 +685,76 @@ Rules:
     with st.sidebar:
         st.markdown(f"<h3 style='color:#00D4FF;font-family:Rajdhani;letter-spacing:2px;'>⚙️ CONTROL PANEL</h3>",unsafe_allow_html=True)
 
+
+        # ── GPS CAPTURE ─────────────────────────────────────────────────────
+        st.markdown("### 📍 Capture GPS Location")
+        gps_html = """
+        <div id="gps-box" style="background:#111827;border:1px solid #1F2F45;border-radius:10px;padding:12px;margin-bottom:8px;">
+            <div id="gps-status" style="color:#64748B;font-size:12px;">📡 Click button to get your location</div>
+            <div id="gps-coords" style="color:#00D4FF;font-family:monospace;font-size:13px;margin:6px 0;"></div>
+            <button onclick="getGPS()" style="background:linear-gradient(135deg,#00D4FF,#0099CC);color:#000;
+                border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;width:100%;margin-top:4px;">
+                📍 Get My GPS Location
+            </button>
+        </div>
+        <script>
+        function getGPS() {
+            var s = document.getElementById("gps-status");
+            var c = document.getElementById("gps-coords");
+            s.innerHTML = "⏳ Fetching location...";
+            s.style.color = "#FFB300";
+            if (!navigator.geolocation) {
+                s.innerHTML = "❌ Geolocation not supported";
+                s.style.color = "#FF3D57";
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(function(pos) {
+                var lat = pos.coords.latitude.toFixed(6);
+                var lon = pos.coords.longitude.toFixed(6);
+                var acc = pos.coords.accuracy.toFixed(0);
+                s.innerHTML = "✅ Location captured!";
+                s.style.color = "#00E676";
+                c.innerHTML = "Lat: " + lat + "<br>Lon: " + lon + "<br>Accuracy: " + acc + "m";
+                // Send to Streamlit via query param trick
+                var url = new URL(window.location.href);
+                url.searchParams.set("gps_lat", lat);
+                url.searchParams.set("gps_lon", lon);
+                url.searchParams.set("gps_acc", acc);
+                window.history.pushState({}, "", url);
+                // Also copy to clipboard for manual use
+                navigator.clipboard.writeText(lat + "," + lon).catch(function(){});
+            }, function(err) {
+                s.innerHTML = "❌ Error: " + err.message;
+                s.style.color = "#FF3D57";
+            }, {enableHighAccuracy: true, timeout: 10000});
+        }
+        </script>
+        """
+        st.components.v1.html(gps_html, height=140)
+
+        # Read GPS from query params if available
+        params = st.query_params
+        if "gps_lat" in params and "gps_lon" in params:
+            try:
+                glat = float(params["gps_lat"])
+                glon = float(params["gps_lon"])
+                gacc = float(params.get("gps_acc", 0))
+                st.session_state["device_gps"] = {"lat": glat, "lon": glon, "accuracy": gacc}
+                db_save_gps(glat, glon, gacc)
+                st.success(f"📍 GPS saved: {glat:.4f}, {glon:.4f}")
+            except:
+                pass
+
+        # Show last saved GPS
+        last_gps = db_get_last_gps()
+        if last_gps:
+            st.markdown(f"""<div style="background:#0A1628;border:1px solid #1F2F45;border-radius:8px;
+                            padding:8px 12px;font-size:11px;color:#64748B;">
+                🕐 Last GPS: <span style="color:#00D4FF;">{last_gps["lat"]:.4f}, {last_gps["lon"]:.4f}</span><br>
+                🎯 Accuracy: {last_gps["accuracy"]:.0f}m · {last_gps["captured_at"]}
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown("---")
         if role == "Public":
             st.markdown("### 📤 Submit Pothole Report")
             uploaded = st.file_uploader("Upload road image",type=["jpg","jpeg","png"])
@@ -583,10 +771,16 @@ Rules:
                             st.session_state.complaints = json.loads(content) if content else []
                         except:
                             st.session_state.complaints = []
+                        if "device_gps" in st.session_state:
+                            g = st.session_state["device_gps"]
+                            for c in st.session_state.complaints:
+                                c["gps"]["lat"] = g["lat"]
+                                c["gps"]["lon"] = g["lon"]
+                        db_save_complaints(st.session_state.complaints)
                         st.session_state.detected_img="output/detected.jpg"
                         st.session_state.auto_running=True
                         st.session_state.last_cycle=datetime.now().isoformat()
-                        st.success(f"✅ Complaint auto-filed!")
+                        st.success(f"✅ Complaint auto-filed & saved to database!")
         else:
             # Admin/Engineer: load data + monitor
             st.markdown("### 📤 Load New Detection")
@@ -604,25 +798,39 @@ Rules:
                             st.session_state.complaints = json.loads(content) if content else []
                         except:
                             st.session_state.complaints = []
+                        if "device_gps" in st.session_state:
+                            g = st.session_state["device_gps"]
+                            for c in st.session_state.complaints:
+                                c["gps"]["lat"] = g["lat"]
+                                c["gps"]["lon"] = g["lon"]
+                        db_save_complaints(st.session_state.complaints)
                         st.session_state.detected_img="output/detected.jpg"
                         st.session_state.auto_running=True
                         st.session_state.last_cycle=datetime.now().isoformat()
-                        st.success(f"✅ {len(st.session_state.complaints)} potholes loaded!")
+                        st.success(f"✅ {len(st.session_state.complaints)} potholes saved to database!")
 
-            # Auto-load from file
-            if not st.session_state.complaints and os.path.exists("output/complaints.json"):
-                try:
-                    with open("output/complaints.json") as f:
-                        content = f.read().strip()
-                    if content:
-                        st.session_state.complaints = json.loads(content)
-                    else:
+            # Auto-load from SQLite DB first, fallback to json file
+            if not st.session_state.complaints:
+                db_data = db_load_complaints()
+                if db_data:
+                    st.session_state.complaints = db_data
+                    st.session_state.detected_img="output/detected.jpg"
+                    st.session_state.auto_running=True
+                    st.session_state.last_cycle=datetime.now().isoformat()
+                elif os.path.exists("output/complaints.json"):
+                    try:
+                        with open("output/complaints.json") as f:
+                            content = f.read().strip()
+                        if content:
+                            st.session_state.complaints = json.loads(content)
+                            db_save_complaints(st.session_state.complaints)  # migrate to DB
+                        else:
+                            st.session_state.complaints = []
+                    except:
                         st.session_state.complaints = []
-                except:
-                    st.session_state.complaints = []
-                st.session_state.detected_img="output/detected.jpg"
-                st.session_state.auto_running=True
-                st.session_state.last_cycle=datetime.now().isoformat()
+                    st.session_state.detected_img="output/detected.jpg"
+                    st.session_state.auto_running=True
+                    st.session_state.last_cycle=datetime.now().isoformat()
 
             st.markdown("---")
             st.markdown("### 🤖 Auto Mode")
