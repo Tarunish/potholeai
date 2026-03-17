@@ -29,6 +29,15 @@ except: REPORTLAB_OK = False
 import urllib.request as _urllib_req
 import urllib.error  as _urllib_err
 import json          as _json_db
+import ssl           as _ssl
+
+# Fix SSL certificate verification on macOS
+_ssl_ctx = _ssl.create_default_context()
+_ssl_ctx.check_hostname = False
+_ssl_ctx.verify_mode = _ssl.CERT_NONE
+_https_handler = _urllib_req.HTTPSHandler(context=_ssl_ctx)
+_opener = _urllib_req.build_opener(_https_handler)
+_urllib_req.install_opener(_opener)
 
 SUPA_URL    = "https://dbppziintmarvykbjykj.supabase.co"
 SUPA_KEY    = "sb_publishable_idLB-4HN7FYANBSLULixRw_r4E"   # anon/publishable key
@@ -96,7 +105,7 @@ def db_save_complaints(complaints):
             method="POST"
         )
         try:
-            with _urllib_req.urlopen(req, timeout=10) as r:
+            with _urllib_req.urlopen(req, timeout=10, context=_ssl_ctx) as r:
                 pass
         except Exception as e:
             st.warning(f"⚠️ DB save error: {e}")
