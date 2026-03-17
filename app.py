@@ -40,7 +40,7 @@ _opener = _urllib_req.build_opener(_https_handler)
 _urllib_req.install_opener(_opener)
 
 SUPA_URL    = "https://dbppziintmarvykbjykj.supabase.co"
-SUPA_KEY    = "sb_publishable_idLB-4HN7FYANBSLULixRw_r4E"   # anon/publishable key
+SUPA_KEY    = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRicHB6aWludG1hcnZ5a2JqeWtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Mjc2OTIsImV4cCI6MjA4OTMwMzY5Mn0.3x9PQtoIUf6btYf03ZepSIs1hJH8NcZqngMuXI349Zg"
 
 def _supa_headers(extra=None):
     h = {
