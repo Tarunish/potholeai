@@ -24,150 +24,119 @@ except: REPORTLAB_OK = False
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SUPABASE (CLOUD PostgreSQL) DATABASE LAYER
+# SUPABASE REST API DATABASE LAYER (port 443 — works on all networks)
 # ══════════════════════════════════════════════════════════════════════════════
-import psycopg2
-import psycopg2.extras
+import urllib.request as _urllib_req
+import urllib.error  as _urllib_err
+import json          as _json_db
 
-SUPABASE_DB_URL = "postgresql://postgres:Tarunish%231507@db.dbppziintmarvykbjykj.supabase.co:5432/postgres"
+SUPA_URL    = "https://dbppziintmarvykbjykj.supabase.co"
+SUPA_KEY    = "sb_publishable_idLB-4HN7FYANBSLULixRw_r4E"   # anon/publishable key
 
-def db_connect():
-    return psycopg2.connect(SUPABASE_DB_URL, connect_timeout=10)
+def _supa_headers(extra=None):
+    h = {
+        "apikey":        SUPA_KEY,
+        "Authorization": f"Bearer {SUPA_KEY}",
+        "Content-Type":  "application/json",
+        "Prefer":        "return=representation",
+    }
+    if extra:
+        h.update(extra)
+    return h
+
+def _supa_request(method, path, data=None, params=""):
+    url  = f"{SUPA_URL}/rest/v1/{path}{params}"
+    body = _json_db.dumps(data).encode() if data else None
+    req  = _urllib_req.Request(url, data=body, headers=_supa_headers(), method=method)
+    try:
+        with _urllib_req.urlopen(req, timeout=10) as r:
+            return _json_db.loads(r.read())
+    except _urllib_err.HTTPError as e:
+        st.warning(f"⚠️ Supabase {method} error: {e.read().decode()}")
+        return None
+    except Exception as e:
+        st.warning(f"⚠️ Supabase error: {e}")
+        return None
 
 def db_init():
-    """Create tables in Supabase if they don't exist."""
-    try:
-        conn = db_connect()
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS complaints (
-                id                  SERIAL PRIMARY KEY,
-                pothole_id          TEXT UNIQUE NOT NULL,
-                location            TEXT,
-                district            TEXT,
-                road                TEXT,
-                highway_km          TEXT,
-                severity            TEXT,
-                confidence          FLOAT,
-                status              TEXT DEFAULT 'Filed',
-                gps_lat             FLOAT,
-                gps_lon             FLOAT,
-                assigned_to         TEXT DEFAULT 'PWD',
-                complaint_filed_at  TEXT,
-                detected_at         TEXT,
-                re_scan_due         TEXT,
-                auto_verified_at    TEXT,
-                auto_escalated_at   TEXT,
-                created_at          TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS gps_sessions (
-                id          SERIAL PRIMARY KEY,
-                lat         FLOAT,
-                lon         FLOAT,
-                accuracy    FLOAT,
-                captured_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        st.warning(f"⚠️ DB init error: {e}")
+    """Tables must be created once in Supabase dashboard SQL editor."""
+    pass   # REST API does not support DDL — tables created via dashboard
 
 def db_save_complaints(complaints):
-    """Upsert complaints into Supabase."""
-    try:
-        conn = db_connect()
-        cur = conn.cursor()
-        for c in complaints:
-            cur.execute("""
-                INSERT INTO complaints
-                    (pothole_id, location, district, road, highway_km, severity,
-                     confidence, status, gps_lat, gps_lon, assigned_to,
-                     complaint_filed_at, detected_at, re_scan_due,
-                     auto_verified_at, auto_escalated_at)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (pothole_id) DO UPDATE SET
-                    status            = EXCLUDED.status,
-                    auto_verified_at  = EXCLUDED.auto_verified_at,
-                    auto_escalated_at = EXCLUDED.auto_escalated_at
-            """, (
-                c.get("pothole_id"), c.get("location"), c.get("district"),
-                c.get("road"), c.get("highway_km"), c.get("severity"),
-                c.get("confidence"), c.get("status"),
-                c.get("gps", {}).get("lat"), c.get("gps", {}).get("lon"),
-                c.get("assigned_to", "PWD"),
-                c.get("complaint_filed_at"), c.get("detected_at"),
-                c.get("re_scan_due"),
-                c.get("auto_verified_at"), c.get("auto_escalated_at"),
-            ))
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        st.warning(f"⚠️ DB save error: {e}")
+    """Upsert complaints via Supabase REST API."""
+    if not complaints:
+        return
+    rows = []
+    for c in complaints:
+        rows.append({
+            "pothole_id":          c.get("pothole_id"),
+            "location":            c.get("location"),
+            "district":            c.get("district"),
+            "road":                c.get("road"),
+            "highway_km":          c.get("highway_km"),
+            "severity":            c.get("severity"),
+            "confidence":          c.get("confidence"),
+            "status":              c.get("status"),
+            "gps_lat":             c.get("gps", {}).get("lat"),
+            "gps_lon":             c.get("gps", {}).get("lon"),
+            "assigned_to":         c.get("assigned_to", "PWD"),
+            "complaint_filed_at":  c.get("complaint_filed_at"),
+            "detected_at":         c.get("detected_at"),
+            "re_scan_due":         c.get("re_scan_due"),
+            "auto_verified_at":    c.get("auto_verified_at"),
+            "auto_escalated_at":   c.get("auto_escalated_at"),
+        })
+    # Upsert in batches of 100
+    for i in range(0, len(rows), 100):
+        batch = rows[i:i+100]
+        req = _urllib_req.Request(
+            f"{SUPA_URL}/rest/v1/complaints",
+            data=_json_db.dumps(batch).encode(),
+            headers={**_supa_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"},
+            method="POST"
+        )
+        try:
+            with _urllib_req.urlopen(req, timeout=10) as r:
+                pass
+        except Exception as e:
+            st.warning(f"⚠️ DB save error: {e}")
 
 def db_load_complaints():
-    """Load all complaints from Supabase."""
-    try:
-        conn = db_connect()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM complaints ORDER BY created_at DESC")
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-        result = []
-        for r in rows:
-            result.append({
-                "pothole_id":          r["pothole_id"],
-                "location":            r["location"],
-                "district":            r["district"],
-                "road":                r["road"],
-                "highway_km":          r["highway_km"],
-                "severity":            r["severity"],
-                "confidence":          r["confidence"],
-                "status":              r["status"],
-                "gps":                 {"lat": r["gps_lat"], "lon": r["gps_lon"]},
-                "assigned_to":         r["assigned_to"],
-                "complaint_filed_at":  r["complaint_filed_at"],
-                "detected_at":         r["detected_at"],
-                "re_scan_due":         r["re_scan_due"],
-                "auto_verified_at":    r["auto_verified_at"],
-                "auto_escalated_at":   r["auto_escalated_at"],
-            })
-        return result
-    except Exception as e:
-        st.warning(f"⚠️ DB load error: {e}")
+    """Load all complaints from Supabase REST API."""
+    rows = _supa_request("GET", "complaints", params="?order=created_at.desc&limit=5000")
+    if not rows:
         return []
+    result = []
+    for r in rows:
+        result.append({
+            "pothole_id":          r.get("pothole_id"),
+            "location":            r.get("location"),
+            "district":            r.get("district"),
+            "road":                r.get("road"),
+            "highway_km":          r.get("highway_km"),
+            "severity":            r.get("severity"),
+            "confidence":          r.get("confidence"),
+            "status":              r.get("status"),
+            "gps":                 {"lat": r.get("gps_lat"), "lon": r.get("gps_lon")},
+            "assigned_to":         r.get("assigned_to"),
+            "complaint_filed_at":  r.get("complaint_filed_at"),
+            "detected_at":         r.get("detected_at"),
+            "re_scan_due":         r.get("re_scan_due"),
+            "auto_verified_at":    r.get("auto_verified_at"),
+            "auto_escalated_at":   r.get("auto_escalated_at"),
+        })
+    return result
 
 def db_save_gps(lat, lon, accuracy):
-    try:
-        conn = db_connect()
-        cur = conn.cursor()
-        cur.execute("INSERT INTO gps_sessions (lat, lon, accuracy) VALUES (%s, %s, %s)",
-                    (lat, lon, accuracy))
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        st.warning(f"⚠️ GPS save error: {e}")
+    _supa_request("POST", "gps_sessions", data={"lat": lat, "lon": lon, "accuracy": accuracy})
 
 def db_get_last_gps():
-    try:
-        conn = db_connect()
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT * FROM gps_sessions ORDER BY id DESC LIMIT 1")
-        row = cur.fetchone()
-        cur.close()
-        conn.close()
-        if row:
-            return {"lat": row["lat"], "lon": row["lon"],
-                    "accuracy": row["accuracy"], "captured_at": str(row["captured_at"])}
-        return None
-    except:
-        return None
+    rows = _supa_request("GET", "gps_sessions", params="?order=id.desc&limit=1")
+    if rows and len(rows) > 0:
+        r = rows[0]
+        return {"lat": r.get("lat"), "lon": r.get("lon"),
+                "accuracy": r.get("accuracy"), "captured_at": r.get("captured_at")}
+    return None
 
 db_init()
 
