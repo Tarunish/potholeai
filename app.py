@@ -99,9 +99,9 @@ def db_save_complaints(complaints):
     for i in range(0, len(rows), 100):
         batch = rows[i:i+100]
         req = _urllib_req.Request(
-            f"{SUPA_URL}/rest/v1/complaints",
+            f"{SUPA_URL}/rest/v1/complaints?on_conflict=pothole_id",
             data=_json_db.dumps(batch).encode(),
-            headers={**_supa_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"},
+            headers={**_supa_headers(), "Prefer": "resolution=merge-duplicates,return=minimal", "Authorization": f"Bearer {SUPA_KEY}", "apikey": SUPA_KEY},
             method="POST"
         )
         try:
