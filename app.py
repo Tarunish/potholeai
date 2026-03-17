@@ -1,5 +1,5 @@
 import streamlit as st
-import json, os, time, random, cv2, sqlite3
+import json, os, time, random, cv2
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -24,118 +24,150 @@ except: REPORTLAB_OK = False
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SQLITE DATABASE LAYER
+# SUPABASE (CLOUD PostgreSQL) DATABASE LAYER
 # ══════════════════════════════════════════════════════════════════════════════
-DB_PATH = "potholeai.db"
+import psycopg2
+import psycopg2.extras
+
+SUPABASE_DB_URL = "postgresql://postgres:Tarunish%231507@db.dbppziintmarvykbjykj.supabase.co:5432/postgres"
 
 def db_connect():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return psycopg2.connect(SUPABASE_DB_URL, connect_timeout=10)
 
 def db_init():
-    conn = db_connect()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS complaints (
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            pothole_id      TEXT UNIQUE NOT NULL,
-            location        TEXT,
-            district        TEXT,
-            road            TEXT,
-            highway_km      TEXT,
-            severity        TEXT,
-            confidence      REAL,
-            status          TEXT DEFAULT 'Filed',
-            gps_lat         REAL,
-            gps_lon         REAL,
-            assigned_to     TEXT DEFAULT 'PWD',
-            complaint_filed_at  TEXT,
-            detected_at         TEXT,
-            re_scan_due         TEXT,
-            auto_verified_at    TEXT,
-            auto_escalated_at   TEXT,
-            created_at      TEXT DEFAULT (datetime('now','localtime'))
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS gps_sessions (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            lat         REAL,
-            lon         REAL,
-            accuracy    REAL,
-            captured_at TEXT DEFAULT (datetime('now','localtime'))
-        )
-    """)
-    conn.commit()
-    conn.close()
+    """Create tables in Supabase if they don't exist."""
+    try:
+        conn = db_connect()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS complaints (
+                id                  SERIAL PRIMARY KEY,
+                pothole_id          TEXT UNIQUE NOT NULL,
+                location            TEXT,
+                district            TEXT,
+                road                TEXT,
+                highway_km          TEXT,
+                severity            TEXT,
+                confidence          FLOAT,
+                status              TEXT DEFAULT 'Filed',
+                gps_lat             FLOAT,
+                gps_lon             FLOAT,
+                assigned_to         TEXT DEFAULT 'PWD',
+                complaint_filed_at  TEXT,
+                detected_at         TEXT,
+                re_scan_due         TEXT,
+                auto_verified_at    TEXT,
+                auto_escalated_at   TEXT,
+                created_at          TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS gps_sessions (
+                id          SERIAL PRIMARY KEY,
+                lat         FLOAT,
+                lon         FLOAT,
+                accuracy    FLOAT,
+                captured_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        st.warning(f"⚠️ DB init error: {e}")
 
 def db_save_complaints(complaints):
-    conn = db_connect()
-    for c in complaints:
-        conn.execute("""
-            INSERT INTO complaints
-                (pothole_id, location, district, road, highway_km, severity,
-                 confidence, status, gps_lat, gps_lon, assigned_to,
-                 complaint_filed_at, detected_at, re_scan_due,
-                 auto_verified_at, auto_escalated_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            ON CONFLICT(pothole_id) DO UPDATE SET
-                status             = excluded.status,
-                auto_verified_at   = excluded.auto_verified_at,
-                auto_escalated_at  = excluded.auto_escalated_at
-        """, (
-            c.get("pothole_id"), c.get("location"), c.get("district"),
-            c.get("road"), c.get("highway_km"), c.get("severity"),
-            c.get("confidence"), c.get("status"),
-            c.get("gps", {}).get("lat"), c.get("gps", {}).get("lon"),
-            c.get("assigned_to","PWD"),
-            c.get("complaint_filed_at"), c.get("detected_at"),
-            c.get("re_scan_due"),
-            c.get("auto_verified_at"), c.get("auto_escalated_at"),
-        ))
-    conn.commit()
-    conn.close()
+    """Upsert complaints into Supabase."""
+    try:
+        conn = db_connect()
+        cur = conn.cursor()
+        for c in complaints:
+            cur.execute("""
+                INSERT INTO complaints
+                    (pothole_id, location, district, road, highway_km, severity,
+                     confidence, status, gps_lat, gps_lon, assigned_to,
+                     complaint_filed_at, detected_at, re_scan_due,
+                     auto_verified_at, auto_escalated_at)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (pothole_id) DO UPDATE SET
+                    status            = EXCLUDED.status,
+                    auto_verified_at  = EXCLUDED.auto_verified_at,
+                    auto_escalated_at = EXCLUDED.auto_escalated_at
+            """, (
+                c.get("pothole_id"), c.get("location"), c.get("district"),
+                c.get("road"), c.get("highway_km"), c.get("severity"),
+                c.get("confidence"), c.get("status"),
+                c.get("gps", {}).get("lat"), c.get("gps", {}).get("lon"),
+                c.get("assigned_to", "PWD"),
+                c.get("complaint_filed_at"), c.get("detected_at"),
+                c.get("re_scan_due"),
+                c.get("auto_verified_at"), c.get("auto_escalated_at"),
+            ))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        st.warning(f"⚠️ DB save error: {e}")
 
 def db_load_complaints():
-    conn = db_connect()
-    rows = conn.execute("SELECT * FROM complaints ORDER BY created_at DESC").fetchall()
-    conn.close()
-    result = []
-    for r in rows:
-        result.append({
-            "pothole_id":           r["pothole_id"],
-            "location":             r["location"],
-            "district":             r["district"],
-            "road":                 r["road"],
-            "highway_km":           r["highway_km"],
-            "severity":             r["severity"],
-            "confidence":           r["confidence"],
-            "status":               r["status"],
-            "gps":                  {"lat": r["gps_lat"], "lon": r["gps_lon"]},
-            "assigned_to":          r["assigned_to"],
-            "complaint_filed_at":   r["complaint_filed_at"],
-            "detected_at":          r["detected_at"],
-            "re_scan_due":          r["re_scan_due"],
-            "auto_verified_at":     r["auto_verified_at"],
-            "auto_escalated_at":    r["auto_escalated_at"],
-        })
-    return result
+    """Load all complaints from Supabase."""
+    try:
+        conn = db_connect()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM complaints ORDER BY created_at DESC")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        result = []
+        for r in rows:
+            result.append({
+                "pothole_id":          r["pothole_id"],
+                "location":            r["location"],
+                "district":            r["district"],
+                "road":                r["road"],
+                "highway_km":          r["highway_km"],
+                "severity":            r["severity"],
+                "confidence":          r["confidence"],
+                "status":              r["status"],
+                "gps":                 {"lat": r["gps_lat"], "lon": r["gps_lon"]},
+                "assigned_to":         r["assigned_to"],
+                "complaint_filed_at":  r["complaint_filed_at"],
+                "detected_at":         r["detected_at"],
+                "re_scan_due":         r["re_scan_due"],
+                "auto_verified_at":    r["auto_verified_at"],
+                "auto_escalated_at":   r["auto_escalated_at"],
+            })
+        return result
+    except Exception as e:
+        st.warning(f"⚠️ DB load error: {e}")
+        return []
 
 def db_save_gps(lat, lon, accuracy):
-    conn = db_connect()
-    conn.execute("INSERT INTO gps_sessions (lat, lon, accuracy) VALUES (?,?,?)",
-                 (lat, lon, accuracy))
-    conn.commit()
-    conn.close()
+    try:
+        conn = db_connect()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO gps_sessions (lat, lon, accuracy) VALUES (%s, %s, %s)",
+                    (lat, lon, accuracy))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        st.warning(f"⚠️ GPS save error: {e}")
 
 def db_get_last_gps():
-    conn = db_connect()
-    row = conn.execute("SELECT * FROM gps_sessions ORDER BY id DESC LIMIT 1").fetchone()
-    conn.close()
-    if row:
-        return {"lat": row["lat"], "lon": row["lon"], "accuracy": row["accuracy"],
-                "captured_at": row["captured_at"]}
-    return None
+    try:
+        conn = db_connect()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM gps_sessions ORDER BY id DESC LIMIT 1")
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if row:
+            return {"lat": row["lat"], "lon": row["lon"],
+                    "accuracy": row["accuracy"], "captured_at": str(row["captured_at"])}
+        return None
+    except:
+        return None
 
 db_init()
 
