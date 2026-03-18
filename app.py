@@ -286,8 +286,6 @@ p, span, li, div { color: var(--text); }
 h1,h2,h3,h4 { font-family: 'Outfit', sans-serif !important; color: var(--text) !important; font-weight: 800 !important; }
 </style>"""
 
-st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
-
 # ─────────────────────────────────────────────────────────────────────────────
 #  SESSION DEFAULTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -314,34 +312,23 @@ for k, v in DEFAULTS.items():
         st.session_state[k] = v
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  REACT LOGIN PAGE  (embedded via components.html)
+#  REACT LOGIN PAGE
 # ─────────────────────────────────────────────────────────────────────────────
 if not st.session_state.logged_in:
 
-    # Hide Streamlit chrome completely
+    # Hide EVERY Streamlit element — pure blank canvas for login
     st.markdown("""
     <style>
-      section[data-testid="stSidebar"]  { display:none !important; }
-      [data-testid="collapsedControl"]   { display:none !important; }
-      .main .block-container             { padding:0 !important; max-width:100vw !important; }
-      .stApp                             { background: #060A12 !important; }
+      section[data-testid="stSidebar"],
+      [data-testid="collapsedControl"],
+      header[data-testid="stHeader"],
+      [data-testid="stToolbar"],
+      [data-testid="stDecoration"],
+      [data-testid="stStatusWidget"],
+      #MainMenu, footer { display:none !important; visibility:hidden !important; }
+      .main .block-container { padding:0 !important; max-width:100vw !important; margin:0 !important; }
+      .stApp { background: #060A12 !important; }
     </style>""", unsafe_allow_html=True)
-
-    # --- Streamlit auth form (hidden under the React UI) ---
-    # We render a minimal Streamlit form and overlay the React UI on top
-    form_col = st.columns([1, 2, 1])[1]
-
-    with form_col:
-        # Tab toggle
-        t1, t2 = st.columns(2)
-        with t1:
-            if st.button("Sign In",       key="btn_login",  use_container_width=True):
-                st.session_state.auth_tab = "login"
-                st.rerun()
-        with t2:
-            if st.button("Create Account", key="btn_signup", use_container_width=True):
-                st.session_state.auth_tab = "signup"
-                st.rerun()
 
     # ── BEAUTIFUL REACT-STYLE LOGIN rendered via HTML/JS ──
     LOGIN_REACT = """
@@ -797,6 +784,7 @@ document.addEventListener('keydown', function(e){
 # ─────────────────────────────────────────────────────────────────────────────
 #  DASHBOARD  (logged-in users only)
 # ─────────────────────────────────────────────────────────────────────────────
+st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 role = st.session_state.role
 CYCLE = 60
 
