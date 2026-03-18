@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pothole Navigation System</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; }
+        #map { width: 100%; height: 100vh; }
+        .leaflet-routing-container { display: none !important; }
+
+        /* ── Nav Panel ── */
+        #navPanel {
+            position: absolute; top: 15px; left: 15px; z-index: 1000;
+            background: rgba(15,20,45,0.97); border-radius: 14px; padding: 18px;
+            width: 290px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            border: 1px solid rgba(126,200,227,0.15); color: #eee;
+        }
+        #navPanel h2 { font-size: 14px; margin-bottom: 14px; color: #7ec8e3; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
+        .field-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; }
+        .loc-input {
+            width: 100%; background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+            padding: 9px 11px; color: #fff; font-size: 13px;
+            outline: none; margin-bottom: 12px; transition: border 0.2s;
+        }
+        .loc-input:focus { border-color: #7ec8e3; }
+
+        /* Autocomplete */
+        .sugg-box {
+            display: none; position: absolute; top: 100%; left: 0; right: 0;
+            z-index: 9999; background: #0f1430;
+            border: 1px solid rgba(126,200,227,0.2); border-radius: 8px;
+            max-height: 150px; overflow-y: auto; margin-top: -10px;
+        }
+        .sugg-box div { padding: 8px 11px; font-size: 12px; color: #bbb; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .sugg-box div:hover { background: rgba(126,200,227,0.1); color: #fff; }
+
+        #startJourneyBtn {
+            width: 100%; padding: 11px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white; border: none; border-radius: 8px;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            letter-spacing: 0.5px; transition: opacity 0.2s; margin-top: 4px;
+        }
+        #startJourneyBtn:hover { opacity: 0.88; }
+
+        /* Toggle icon */
+        #toggleNav {
+            display: none; position: absolute; top: 15px; left: 15px; z-index: 1001;
+            background: rgba(15,20,45,0.95); border: 1px solid rgba(126,200,227,0.2);
+            border-radius: 50%; width: 46px; height: 46px; font-size: 19px;
+            cursor: pointer; color: #7ec8e3; align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        /* Status bar */
+        #statusBar {
+            display: none; position: absolute; bottom: 22px; left: 50%;
+            transform: translateX(-50%); z-index: 1000;
+            background: rgba(15,20,45,0.94); color: #eee;
+            padding: 10px 24px; border-radius: 24px; font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
+        }
+
+        /* ── Pothole Warning Card (side) ── */
+        #potholeCard {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            right: 20px;
+            z-index: 9000;
+            background: rgba(15, 20, 45, 0.97);
+            border-radius: 16px;
+            padding: 20px 22px;
+            width: 300px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #eee;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(120%); opacity: 0; }
+            to   { transform: translateX(0);    opacity: 1; }
+        }
+        #potholeCard .risk-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        #potholeCard h3 { font-size: 16px; margin-bottom: 8px; }
+        #potholeCard p  { font-size: 12px; color: #aaa; line-height: 1.6; margin-bottom: 14px; }
+        .modal-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .modal-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            flex: 1;
+        }
+        .modal-btn:hover { opacity: 0.85; }
+        .btn-reroute  { background: linear-gradient(135deg, #28a745, #20c997); color: white; }
+        .btn-continue { background: rgba(255,255,255,0.08); color: #ccc; border: 1px solid rgba(255,255,255,0.12); }
+    </style>
+</head>
+<body>
+
+<button id="toggleNav" onclick="document.getElementById('navPanel').style.display='block';this.style.display='none';">🗺️</button>
+
+<div id="navPanel">
+    <h2>🚗 Pothole Navigation</h2>
+    <div class="field-label">📍 Starting Point</div>
+    <div style="position:relative;">
+        <input class="loc-input" id="startInput" type="text" placeholder="e.g. Mumbai" autocomplete="off" />
+        <div class="sugg-box" id="startSugg"></div>
+    </div>
+    <div class="field-label">🏁 Destination</div>
+    <div style="position:relative;">
+        <input class="loc-input" id="endInput" type="text" placeholder="e.g. Pune" autocomplete="off" />
+        <div class="sugg-box" id="endSugg"></div>
+    </div>
+    <button id="startJourneyBtn">🚀 Start Journey</button>
+</div>
+
+<div id="statusBar"></div>
+<div id="map"></div>
+
+<!-- ── Pothole Warning Card (slides in from right) ── -->
+<div id="potholeCard">
+    <div id="modalBadge" class="risk-badge"></div>
+    <h3 id="modalTitle">⚠ Pothole Ahead!</h3>
+    <p id="modalMsg"></p>
+    <div class="modal-btns" id="modalBtns"></div>
+</div>
+
+<script src="pothole.js"></script>
+</body>
+</html>
