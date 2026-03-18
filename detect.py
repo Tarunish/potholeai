@@ -3,6 +3,8 @@ import cv2
 import json
 import os
 import random
+import ssl
+import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 from PIL import Image
@@ -115,6 +117,36 @@ def find_nearest_road(lat, lon):
             best      = loc
     return best
 
+def reverse_geocode(lat, lon):
+    """Get real address from GPS coordinates using OpenStreetMap Nominatim (free, no key needed)."""
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json"
+        req = urllib.request.Request(url, headers={"User-Agent": "PotholeAI/1.0"})
+        with urllib.request.urlopen(req, timeout=5, context=ctx) as r:
+            data = json.loads(r.read())
+        addr = data.get("address", {})
+        # Build location string from real address
+        road  = addr.get("road") or addr.get("highway") or addr.get("suburb") or "Unknown Road"
+        city  = addr.get("city") or addr.get("town") or addr.get("village") or addr.get("county") or "Unknown Area"
+        state = addr.get("state", "")
+        district = addr.get("county") or addr.get("state_district") or city
+        display = data.get("display_name", f"{lat}, {lon}")
+        print(f"📍 Real address: {display[:80]}")
+        return {
+            "road": road,
+            "place": city,
+            "district": district,
+            "state": state,
+            "display": display,
+            "division": f"PWD {district}"
+        }
+    except Exception as e:
+        print(f"⚠️  Reverse geocode failed ({e}) — using nearest CG highway")
+        return None
+
 def get_severity(box, img_w, img_h):
     x1,y1,x2,y2 = box
     pct = ((x2-x1)*(y2-y1))/(img_w*img_h)*100
@@ -134,15 +166,20 @@ def detect(image_path):
 
     # ── Try to get real GPS from photo ────────────────────────────────────────
     real_gps = extract_gps_from_image(image_path)
+    real_address = None
     if real_gps:
         real_lat, real_lon = real_gps
-        nearest_road = find_nearest_road(real_lat, real_lon)
-        print(f"🛣️  Nearest CG highway: {nearest_road['road']}, {nearest_road['place']}")
+        # Try to get real address via reverse geocoding
+        real_address = reverse_geocode(real_lat, real_lon)
+        if not real_address:
+            nearest_road = find_nearest_road(real_lat, real_lon)
+            real_address = nearest_road
+        print(f"🛣️  Location: {real_address['place']}, {real_address['district']}")
         gps_source = "REAL"
     else:
         real_gps = None
-        gps_source = "SIMULATED"
-        print("📡 No GPS in image — using CG highway simulation data")
+        gps_source = "NO_GPS_IN_IMAGE"
+        print("📡 No GPS in image — please use the GPS button in sidebar for real location")
 
     model = YOLO("best.pt")
     img   = cv2.imread(image_path)
@@ -160,15 +197,33 @@ def detect(image_path):
         conf = float(box.conf[0])
         severity, color = get_severity((x1,y1,x2,y2), img_w, img_h)
 
-        # Use real GPS if available, else pick random CG location
+        # Use real GPS from photo EXIF or device GPS file
+        device_gps = None
+        if os.path.exists("device_gps.json"):
+            try:
+                with open("device_gps.json") as gf:
+                    device_gps = json.load(gf)
+            except:
+                pass
+
         if real_gps:
-            lat = round(real_lat + random.uniform(-0.001, 0.001), 6)
-            lon = round(real_lon + random.uniform(-0.001, 0.001), 6)
+            # GPS from photo EXIF — most accurate
+            lat = round(real_lat + random.uniform(-0.0005, 0.0005), 6)
+            lon = round(real_lon + random.uniform(-0.0005, 0.0005), 6)
             loc = nearest_road
+        elif device_gps:
+            # GPS captured from browser device
+            lat = round(device_gps["lat"] + random.uniform(-0.0005, 0.0005), 6)
+            lon = round(device_gps["lon"] + random.uniform(-0.0005, 0.0005), 6)
+            loc = find_nearest_road(lat, lon)
+            gps_source = "DEVICE"
+            print(f"📱 Using device GPS: {lat}, {lon}")
         else:
-            loc = random.choice(CG_LOCATIONS)
-            lat = round(loc["lat"] + random.uniform(-0.015, 0.015), 6)
-            lon = round(loc["lon"] + random.uniform(-0.015, 0.015), 6)
+            # No GPS available — use 0,0 and mark as unknown
+            lat, lon = 0.0, 0.0
+            loc = {"road":"Unknown","place":"Unknown","district":"Unknown","division":"PWD"}
+            gps_source = "UNKNOWN"
+            print("⚠️  No GPS available. Capture GPS in sidebar before detecting.")
 
         pid = gen_id(i)
         cv2.rectangle(img,(x1,y1),(x2,y2),color,3)
@@ -192,36 +247,8 @@ def detect(image_path):
             "highway_km": f"KM {random.randint(10,500)}+{random.randint(0,999):03d}",
         })
 
-    # Fill up to 50 synthetic potholes
-    random.shuffle(CG_LOCATIONS)
-    for i in range(100 - len(complaints)):
-        idx = i % len(CG_LOCATIONS)
-        loc = CG_LOCATIONS[idx]
-
-        # If real GPS available, cluster some near real location
-        if real_gps and i < 5:
-            lat = round(real_lat + random.uniform(-0.05, 0.05), 6)
-            lon = round(real_lon + random.uniform(-0.05, 0.05), 6)
-        else:
-            lat = round(loc["lat"] + random.uniform(-0.025, 0.025), 6)
-            lon = round(loc["lon"] + random.uniform(-0.025, 0.025), 6)
-
-        sev = random.choices(SEVERITIES, weights=SEVERITY_WEIGHTS)[0]
-        pid = gen_id(len(complaints)+i+100)
-        fd  = rand_date()
-        rd  = (datetime.fromisoformat(fd)+timedelta(days=14)).strftime("%Y-%m-%d")
-        complaints.append({
-            "pothole_id": pid, "detected_at": fd,
-            "road": loc["road"], "location": f"{loc['road']}, {loc['place']}",
-            "place": loc["place"], "district": loc["district"],
-            "gps": {"lat": lat, "lon": lon},
-            "gps_source": "SIMULATED",
-            "severity": sev, "confidence": round(random.uniform(0.71,0.98),3),
-            "status": random.choice(STATUSES), "assigned_to": loc["division"],
-            "grievance_portal": "PG Portal India",
-            "complaint_filed_at": fd, "re_scan_due": rd,
-            "highway_km": f"KM {random.randint(10,500)}+{random.randint(0,999):03d}",
-        })
+    # ── NO FAKE DATA — only real YOLO detections saved ──────────────────────
+    print(f"   ✅ Real detections only: {len(complaints)} potholes from YOLO")
 
     # Sort Critical first
     order = {"Critical":0,"Moderate":1,"Minor":2}

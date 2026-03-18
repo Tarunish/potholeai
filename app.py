@@ -751,6 +751,10 @@ Rules:
                 gacc = float(params.get("gps_acc", 0))
                 st.session_state["device_gps"] = {"lat": glat, "lon": glon, "accuracy": gacc}
                 db_save_gps(glat, glon, gacc)
+                # Save to file so detect.py can read it
+                import json as _gps_json
+                with open("device_gps.json", "w") as _gf:
+                    _gps_json.dump({"lat": glat, "lon": glon, "accuracy": gacc}, _gf)
                 st.success(f"📍 GPS saved: {glat:.4f}, {glon:.4f}")
             except:
                 pass
