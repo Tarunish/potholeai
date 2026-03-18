@@ -419,12 +419,12 @@ if not st.session_state.logged_in:
         tc1, tc2 = st.columns(2)
         with tc1:
             login_type = "primary" if st.session_state.auth_tab == "login" else "secondary"
-            if st.button("Sign In", key="tab_li", use_container_width=True, type=login_type):
+            if st.button("Sign In", key="tab_li", width="stretch", type=login_type):
                 st.session_state.auth_tab = "login"
                 st.rerun()
         with tc2:
             signup_type = "primary" if st.session_state.auth_tab == "signup" else "secondary"
-            if st.button("Create Account", key="tab_su", use_container_width=True, type=signup_type):
+            if st.button("Create Account", key="tab_su", width="stretch", type=signup_type):
                 st.session_state.auth_tab = "signup"
                 st.rerun()
 
@@ -439,7 +439,7 @@ if not st.session_state.logged_in:
             password = st.text_input("PASSWORD", placeholder="Enter your password",
                                      type="password", key="li_p")
 
-            if st.button("Sign In →", key="li_btn", use_container_width=True):
+            if st.button("Sign In →", key="li_btn", width="stretch"):
                 if not username or not password:
                     st.warning("Please enter username and password")
                 else:
@@ -474,7 +474,7 @@ if not st.session_state.logged_in:
             new_conf = st.text_input("CONFIRM PASSWORD", placeholder="Repeat password",      type="password", key="su_c")
             new_role = st.selectbox("ROLE", ["Public","Engineer","Admin"], key="su_r")
 
-            if st.button("Create Account →", key="su_btn", use_container_width=True):
+            if st.button("Create Account →", key="su_btn", width="stretch"):
                 if not all([new_user, new_email, new_pass, new_conf]):
                     st.warning("Please fill all fields")
                 elif new_pass != new_conf:
@@ -737,7 +737,7 @@ function g(){
         with open("pothole.jpg","wb") as f:
             f.write(uploaded.getbuffer())
         st.success("✅ Image ready")
-        if st.button("🔍 Detect & Submit", use_container_width=True):
+        if st.button("🔍 Detect & Submit", width="stretch"):
             if DETECT_OK:
                 with st.spinner("Running YOLOv11…"):
                     detect("pothole.jpg")
@@ -777,10 +777,10 @@ function g(){
         st.markdown("#### 🤖 Auto Mode")
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("▶️ Start", use_container_width=True):
+            if st.button("▶️ Start", width="stretch"):
                 st.session_state.auto_on = True
         with c2:
-            if st.button("⏸️ Pause", use_container_width=True):
+            if st.button("⏸️ Pause", width="stretch"):
                 st.session_state.auto_on = False
 
         if st.session_state.last_cycle:
@@ -807,7 +807,7 @@ function g(){
 
     # Clear data
     if role in ("Admin","Engineer"):
-        if st.button("🗑️ Clear All Data", type="primary", use_container_width=True):
+        if st.button("🗑️ Clear All Data", type="primary", width="stretch"):
             st.session_state.complaints = []
             st.session_state.notifs     = []
             st.session_state.auto_log   = []
@@ -869,8 +869,8 @@ st.markdown("<hr style='border:1px solid #162035;margin:10px 0 14px'>", unsafe_a
 
 
 # ── TABS ──────────────────────────────────────────────────────────────────────
-TAB_NAMES = ["🗺️ Map","📊 Analytics","🌤️ Weather","🔔 Alerts","🤖 Auto Log","💬 AI Chat","📋 Reports"]
-t_map, t_an, t_wx, t_al, t_log, t_chat, t_rep = st.tabs(TAB_NAMES)
+TAB_NAMES = ["🗺️ Map","📊 Analytics","🌤️ Weather","🔔 Alerts","🤖 Auto Log","💬 AI Chat","📋 Reports","📸 Instagram"]
+t_map, t_an, t_wx, t_al, t_log, t_chat, t_rep, t_ig = st.tabs(TAB_NAMES)
 
 
 # ═══════════════════════════════ MAP ══════════════════════════════════════════
@@ -896,7 +896,7 @@ with t_map:
                         f"Sev: {c.get('severity','')} | Status: {c.get('status','')}",
                         max_width=200)
                 ).add_to(m)
-            st_folium(m, use_container_width=True, height=450)
+            st_folium(m, width="stretch", height=450)
         elif not FOLIUM_OK:
             st.warning("Install folium + streamlit-folium for interactive maps")
         else:
@@ -911,9 +911,9 @@ with t_map:
         st.markdown("#### 📸 Detected Image")
         if st.session_state.det_img and os.path.exists(st.session_state.det_img):
             if PIL_OK:
-                st.image(Image.open(st.session_state.det_img), use_container_width=True)
+                st.image(Image.open(st.session_state.det_img), width="stretch")
             else:
-                st.image(st.session_state.det_img, use_container_width=True)
+                st.image(st.session_state.det_img, width="stretch")
         else:
             st.markdown("""
             <div style="background:#0D1525;border:2px dashed #162035;border-radius:12px;
@@ -938,7 +938,7 @@ with t_map:
                 font_color="#E2E8F0", showlegend=False,
                 height=210, margin=dict(l=0,r=0,t=0,b=0)
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
 
 # ═══════════════════════════════ ANALYTICS ════════════════════════════════════
@@ -956,7 +956,7 @@ with t_an:
                 fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
                     font_color="#E2E8F0",height=320,coloraxis_showscale=False,
                     margin=dict(l=0,r=0,t=36,b=0),yaxis=dict(autorange="reversed"))
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
         with a2:
             fig2 = px.bar(
                 x=["Filed","Escalated","Repaired"], y=[filed,escalated,repaired],
@@ -966,7 +966,7 @@ with t_an:
             )
             fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
                 font_color="#E2E8F0",height=320,showlegend=False,margin=dict(l=0,r=0,t=36,b=0))
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width="stretch")
 
         sc = Counter(c.get("district","Unknown") for c in all_c).most_common(16)
         if sc:
@@ -977,7 +977,7 @@ with t_an:
             )
             fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)",font_color="#E2E8F0",
                 height=280,margin=dict(l=0,r=0,t=36,b=0))
-            st.plotly_chart(fig3, use_container_width=True)
+            st.plotly_chart(fig3, width="stretch")
     else:
         st.info("📊 No data yet — run detection first")
 
@@ -1176,4 +1176,194 @@ with t_rep:
           <div style="font-size:60px;margin-bottom:16px">🚧</div>
           <h3 style="color:#3B82F6">No Reports Yet</h3>
           <p style="color:#334155;font-size:14px">Upload a road photo and run detection to get started</p>
+        </div>""", unsafe_allow_html=True)
+
+
+# ═══════════════════════════════ INSTAGRAM ════════════════════════════════════
+with t_ig:
+    st.markdown("### 📸 Instagram Pothole Intelligence")
+    st.caption("Auto-scrape Instagram for pothole reports across India · AI predicts location from captions & images")
+
+    # Import integration module
+    try:
+        from instagram_integration import (
+            ig_search_potholes, run_instagram_pipeline,
+            predict_location_from_caption, POTHOLE_HASHTAGS
+        )
+        IG_MODULE_OK = True
+    except ImportError:
+        IG_MODULE_OK = False
+
+    # API Status
+    ig_token  = os.environ.get("IG_ACCESS_TOKEN", "")
+    gv_key    = os.environ.get("GOOGLE_VISION_KEY", "")
+
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        st.markdown(f"""
+        <div style="background:#0D1525;border:1px solid {'#10B98130' if ig_token else '#EF444430'};
+                    border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:20px">{'✅' if ig_token else '⚠️'}</div>
+          <div style="font-size:12px;font-weight:700;color:{'#10B981' if ig_token else '#EF4444'}">
+            Meta Graph API
+          </div>
+          <div style="font-size:11px;color:#334155">{'Connected' if ig_token else 'No token set'}</div>
+        </div>""", unsafe_allow_html=True)
+    with sc2:
+        st.markdown(f"""
+        <div style="background:#0D1525;border:1px solid {'#10B98130' if gv_key else '#F59E0B30'};
+                    border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:20px">{'✅' if gv_key else '⚠️'}</div>
+          <div style="font-size:12px;font-weight:700;color:{'#10B981' if gv_key else '#F59E0B'}">
+            Google Vision API
+          </div>
+          <div style="font-size:11px;color:#334155">{'Connected' if gv_key else 'Optional'}</div>
+        </div>""", unsafe_allow_html=True)
+    with sc3:
+        st.markdown(f"""
+        <div style="background:#0D1525;border:1px solid #10B98130;
+                    border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:20px">✅</div>
+          <div style="font-size:12px;font-weight:700;color:#10B981">OSM Geocoding</div>
+          <div style="font-size:11px;color:#334155">Always active · Free</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # How it works
+    with st.expander("🔍 How Instagram Integration Works", expanded=False):
+        st.markdown("""
+        <div style="background:#0D1525;border-radius:12px;padding:20px;line-height:2">
+          <b style="color:#3B82F6">Pipeline:</b><br>
+          <b>1.</b> 📸 Search Instagram for hashtags: <code>#pothole</code> <code>#खड्डा</code> <code>#badroads</code> etc.<br>
+          <b>2.</b> 📍 <b>Location Prediction</b> (3 methods in order):<br>
+          &nbsp;&nbsp;&nbsp;• Instagram tagged location (most accurate)<br>
+          &nbsp;&nbsp;&nbsp;• AI reads caption → extracts road/city name → geocodes via OpenStreetMap<br>
+          &nbsp;&nbsp;&nbsp;• Google Vision API → detects landmarks/signs in image → geocodes<br>
+          <b>3.</b> 🤖 YOLOv11 runs on each image → detects & classifies potholes<br>
+          <b>4.</b> 💾 Auto-saved to PotholeAI database with full details<br><br>
+          <b style="color:#F59E0B">Setup required:</b> Meta Developer Account + Instagram Business Account<br>
+          <b style="color:#10B981">Works without API key:</b> Demo mode shows sample posts
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Hashtags monitored
+    st.markdown("#### 🏷️ Monitored Hashtags")
+    if IG_MODULE_OK:
+        tags_html = " ".join([
+            f'<span style="background:rgba(37,99,235,0.12);color:#3B82F6;border:1px solid rgba(37,99,235,0.25);'
+            f'border-radius:20px;padding:3px 12px;font-size:12px;margin:3px;display:inline-block">#{t}</span>'
+            for t in POTHOLE_HASHTAGS
+        ])
+        st.markdown(tags_html, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Scrape controls
+    ig1, ig2 = st.columns([1, 2])
+    with ig1:
+        max_posts = st.slider("Max posts to fetch", 5, 50, 10)
+        run_detection = st.checkbox("Run YOLOv11 on each image", value=False)
+        if st.button("🔍 Fetch Instagram Posts", width="stretch"):
+            with st.spinner("Scraping Instagram for potholes..."):
+                if IG_MODULE_OK:
+                    posts = ig_search_potholes(max_posts=max_posts)
+                    st.session_state["ig_posts"] = posts
+                    st.success(f"✅ Found {len(posts)} posts")
+                else:
+                    st.error("instagram_integration.py not found")
+
+        if st.button("🤖 Full Pipeline (Detect + Save)", width="stretch"):
+            with st.spinner("Running full Instagram pipeline..."):
+                if IG_MODULE_OK:
+                    detect_fn = detect if DETECT_OK and run_detection else None
+                    new_complaints = run_instagram_pipeline(
+                        detect_fn=detect_fn,
+                        max_posts=max_posts
+                    )
+                    if new_complaints:
+                        st.session_state.complaints.extend(new_complaints)
+                        db_save(st.session_state.complaints)
+                        st.success(f"✅ Added {len(new_complaints)} Instagram potholes to database!")
+                        st.rerun()
+                    else:
+                        st.warning("No potholes with location found")
+
+    with ig2:
+        # Show fetched posts
+        posts = st.session_state.get("ig_posts", [])
+        if not posts and IG_MODULE_OK:
+            # Show demo on first load
+            from instagram_integration import _get_demo_posts
+            posts = _get_demo_posts()
+
+        if posts:
+            st.markdown(f"#### 📋 {len(posts)} Posts Found")
+            for post in posts[:10]:
+                loc = post.get("location", {})
+                loc_name = loc.get("name", "") if isinstance(loc, dict) else ""
+                caption  = post.get("caption", "")[:120]
+
+                # Predict location if missing
+                if not loc_name and caption and IG_MODULE_OK:
+                    from instagram_integration import predict_location_from_caption
+                    predicted = predict_location_from_caption(caption)
+                    loc_name  = predicted.get("name", "Predicting...")
+
+                has_loc = bool(loc_name)
+                loc_clr = "#10B981" if has_loc else "#F59E0B"
+                loc_ico = "📍" if has_loc else "🔍"
+
+                st.markdown(f"""
+                <div style="background:#0D1525;border:1px solid #162035;border-radius:10px;
+                            padding:12px 14px;margin:6px 0">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="color:#3B82F6;font-size:11px;font-weight:700">
+                      #{post.get('hashtag','')} · {post.get('source','')}
+                    </span>
+                    <a href="{post.get('permalink','#')}" target="_blank"
+                       style="color:#3B82F6;font-size:11px;text-decoration:none">🔗 View Post</a>
+                  </div>
+                  <div style="font-size:13px;color:#94A3B8;margin:6px 0">{caption}{'...' if len(post.get('caption',''))>120 else ''}</div>
+                  <div style="font-size:12px">
+                    <span style="color:{loc_clr}">{loc_ico} {loc_name if loc_name else 'Location being predicted...'}</span>
+                    {'&nbsp;·&nbsp;<span style="color:#334155">GPS: ' + str(round(loc.get("lat",0),4)) + ', ' + str(round(loc.get("lon",0),4)) + '</span>' if isinstance(loc,dict) and loc.get('lat') else ''}
+                  </div>
+                </div>""", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Setup guide
+    st.markdown("#### ⚙️ Setup API Keys")
+    setup1, setup2 = st.columns(2)
+    with setup1:
+        st.markdown("""
+        <div style="background:#0D1525;border:1px solid #162035;border-radius:10px;padding:16px">
+          <b style="color:#3B82F6">Meta Graph API (Instagram)</b><br><br>
+          <span style="font-size:13px;color:#64748B">
+          1. Go to <b>developers.facebook.com</b><br>
+          2. Create App → Consumer type<br>
+          3. Add Instagram Basic Display product<br>
+          4. Get Access Token<br>
+          5. Set in terminal:<br>
+          </span>
+          <code style="background:#060A12;padding:6px 10px;border-radius:6px;font-size:12px;display:block;margin-top:8px;color:#10B981">
+          export IG_ACCESS_TOKEN="your_token"<br>
+          export IG_USER_ID="your_user_id"
+          </code>
+        </div>""", unsafe_allow_html=True)
+    with setup2:
+        st.markdown("""
+        <div style="background:#0D1525;border:1px solid #162035;border-radius:10px;padding:16px">
+          <b style="color:#3B82F6">Google Vision API (Optional)</b><br><br>
+          <span style="font-size:13px;color:#64748B">
+          Used for location prediction from road signs & landmarks in images<br><br>
+          1. Go to <b>console.cloud.google.com</b><br>
+          2. Enable Cloud Vision API<br>
+          3. Create API Key<br>
+          4. Set in terminal:<br>
+          </span>
+          <code style="background:#060A12;padding:6px 10px;border-radius:6px;font-size:12px;display:block;margin-top:8px;color:#10B981">
+          export GOOGLE_VISION_KEY="your_key"
+          </code>
         </div>""", unsafe_allow_html=True)
