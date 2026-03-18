@@ -1141,13 +1141,16 @@ repaired   = sum(1 for c in all_c if c.get("status")=="Repaired")
 
 # ── METRICS ROW ───────────────────────────────────────────────────────────────
 m = st.columns(7)
-for col, lbl, val, clr in zip(m, [
-    ("🚧","Total",total,"#3B82F6"),("🔴","Critical",critical,"#EF4444"),
-    ("🟠","Moderate",moderate,"#F59E0B"),("🟢","Minor",minor,"#10B981"),
-    ("📬","Filed",filed,"#3B82F6"),("🚨","Escalated",escalated,"#F59E0B"),
-    ("✅","Repaired",repaired,"#10B981"),
-]):
-    icon, name, val2, clr2 = lbl
+metrics_data = [
+    ("🚧","Total",    total,    "#3B82F6"),
+    ("🔴","Critical", critical, "#EF4444"),
+    ("🟠","Moderate", moderate, "#F59E0B"),
+    ("🟢","Minor",    minor,    "#10B981"),
+    ("📬","Filed",    filed,    "#3B82F6"),
+    ("🚨","Escalated",escalated,"#F59E0B"),
+    ("✅","Repaired", repaired, "#10B981"),
+]
+for col, (icon, name, val2, clr2) in zip(m, metrics_data):
     col.markdown(f"""
     <div style="background:#0D1525;border:1px solid #162035;border-radius:12px;
                 padding:12px 10px;text-align:center;">
