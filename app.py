@@ -316,439 +316,143 @@ for k, v in DEFAULTS.items():
 # ─────────────────────────────────────────────────────────────────────────────
 if not st.session_state.logged_in:
 
-    # Hide EVERY Streamlit element — pure blank canvas for login
+    # Full blank canvas
     st.markdown("""
     <style>
-      section[data-testid="stSidebar"],
-      [data-testid="collapsedControl"],
-      header[data-testid="stHeader"],
-      [data-testid="stToolbar"],
-      [data-testid="stDecoration"],
-      [data-testid="stStatusWidget"],
-      #MainMenu, footer { display:none !important; visibility:hidden !important; }
+      section[data-testid="stSidebar"], [data-testid="collapsedControl"],
+      header[data-testid="stHeader"], [data-testid="stToolbar"],
+      [data-testid="stDecoration"], [data-testid="stStatusWidget"],
+      #MainMenu, footer { display:none !important; }
       .main .block-container { padding:0 !important; max-width:100vw !important; margin:0 !important; }
-      .stApp { background: #060A12 !important; }
-    </style>""", unsafe_allow_html=True)
+      .stApp { background:#060A12 !important; }
 
-    # ── BEAUTIFUL REACT-STYLE LOGIN rendered via HTML/JS ──
-    LOGIN_REACT = """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Outfit', sans-serif;
-    background: linear-gradient(135deg, #060A12 0%, #0B1520 50%, #060A12 100%);
-    min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
-  }
+      /* login card styles */
+      .login-wrap {
+        min-height:100vh; display:flex; align-items:center;
+        justify-content:center; padding:40px 20px;
+        background: radial-gradient(ellipse at 30% 20%, #0D1F44 0%, #060A12 65%);
+      }
+      .login-left { flex:1.1; max-width:500px; padding-right:60px; }
+      .login-right {
+        flex:0.9; max-width:420px;
+        background:rgba(11,17,32,0.97);
+        border:1px solid rgba(37,99,235,0.2);
+        border-radius:20px; padding:40px 36px;
+        box-shadow:0 32px 64px rgba(0,0,0,0.5);
+      }
+      .brand { font-family:Outfit,sans-serif; font-size:52px; font-weight:900;
+               color:#fff; letter-spacing:-2px; line-height:1; margin-bottom:14px; }
+      .brand span { color:#3B82F6; }
+      .brand-sub { font-size:15px; color:#334155; line-height:1.8; margin-bottom:36px; }
+      .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:36px; }
+      .stat-box { background:rgba(37,99,235,0.07); border:1px solid rgba(37,99,235,0.18);
+                  border-radius:12px; padding:16px 18px; }
+      .stat-n { font-size:28px; font-weight:900; color:#3B82F6; font-family:Outfit,sans-serif; }
+      .stat-l { font-size:11px; color:#334155; margin-top:2px; letter-spacing:0.5px; }
+      .feat { font-size:13px; color:#334155; display:flex; align-items:center;
+              gap:8px; margin-bottom:8px; }
+      .feat::before { content:""; width:5px; height:5px; border-radius:50%;
+                      background:#2563EB; flex-shrink:0; }
+      .auth-title { font-family:Outfit,sans-serif; font-size:24px; font-weight:800;
+                    color:#fff; margin-bottom:4px; }
+      .auth-sub { font-size:13px; color:#334155; margin-bottom:28px; }
+      .tab-strip { display:flex; gap:4px; background:rgba(255,255,255,0.04);
+                   border-radius:11px; padding:4px; margin-bottom:28px;
+                   border:1px solid rgba(37,99,235,0.1); }
+      .tab-pill { flex:1; padding:9px; border:none; background:transparent;
+                  color:#4B6080; font-size:13px; font-weight:700; border-radius:8px;
+                  cursor:pointer; font-family:Outfit,sans-serif; transition:all 0.2s; }
+      .tab-pill.on { background:#2563EB; color:#fff; box-shadow:0 0 16px rgba(37,99,235,0.4); }
+      .demo-box { background:rgba(37,99,235,0.06); border:1px solid rgba(37,99,235,0.15);
+                  border-radius:10px; padding:14px 16px; margin-top:20px; font-size:12px; }
+      .demo-row { display:flex; gap:8px; align-items:center; padding:3px 0; color:#4B6080; }
+      .demo-badge { background:rgba(37,99,235,0.15); color:#3B82F6; border-radius:20px;
+                    padding:1px 9px; font-size:11px; font-weight:700; }
+      .stTextInput > div > div > input {
+        background:rgba(255,255,255,0.04) !important;
+        border:1px solid rgba(37,99,235,0.2) !important;
+        border-radius:10px !important; color:#E2E8F0 !important;
+        padding:11px 16px !important; font-family:Outfit,sans-serif !important;
+      }
+      .stTextInput > div > div > input:focus {
+        border-color:rgba(37,99,235,0.7) !important;
+        box-shadow:0 0 16px rgba(37,99,235,0.15) !important;
+      }
+      .stTextInput label { font-size:11px !important; color:#64748B !important;
+                           font-weight:600 !important; letter-spacing:0.5px !important; }
+      .stButton > button {
+        background:linear-gradient(135deg,#2563EB,#1D4ED8) !important;
+        border-radius:11px !important; font-size:14px !important;
+        font-weight:700 !important; padding:12px !important;
+        box-shadow:0 8px 24px rgba(37,99,235,0.35) !important;
+      }
+      .stSelectbox label { font-size:11px !important; color:#64748B !important; font-weight:600 !important; }
+      @media(max-width:750px) { .login-left { display:none !important; } }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    """, unsafe_allow_html=True)
 
-  /* Animated grid background */
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(37,99,235,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(37,99,235,0.04) 1px, transparent 1px);
-    background-size: 60px 60px;
-    pointer-events: none;
-    animation: gridMove 20s linear infinite;
-  }
-  @keyframes gridMove { from { transform: translateY(0); } to { transform: translateY(60px); } }
+    # Two column layout: left=branding, right=form
+    left_col, right_col = st.columns([1.15, 1])
 
-  /* Glowing orbs */
-  .orb {
-    position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; opacity: 0.12;
-    animation: pulse 6s ease-in-out infinite alternate;
-  }
-  .orb1 { width:400px; height:400px; background:#2563EB; top:-100px; left:-100px; }
-  .orb2 { width:300px; height:300px; background:#06B6D4; bottom:-50px; right:50px; animation-delay:3s; }
-  .orb3 { width:200px; height:200px; background:#3B82F6; top:50%; left:50%; animation-delay:1.5s; }
-  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.2); } }
-
-  .container {
-    display: flex; align-items: stretch; gap: 0;
-    width: min(1060px, 95vw); min-height: 560px;
-    background: rgba(11,17,32,0.9); border-radius: 24px;
-    border: 1px solid rgba(37,99,235,0.2);
-    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(37,99,235,0.06), inset 0 1px 0 rgba(255,255,255,0.04);
-    backdrop-filter: blur(20px); overflow: hidden; position: relative; z-index: 10;
-    animation: slideUp 0.6s cubic-bezier(0.16,1,0.3,1);
-  }
-  @keyframes slideUp { from { opacity:0; transform:translateY(32px); } to { opacity:1; transform:translateY(0); } }
-
-  /* LEFT PANEL */
-  .left {
-    flex: 1.1; background: linear-gradient(160deg, #0D1A35 0%, #060E1F 100%);
-    padding: 56px 48px; display: flex; flex-direction: column; justify-content: space-between;
-    border-right: 1px solid rgba(37,99,235,0.12);
-    position: relative; overflow: hidden;
-  }
-  .left::after {
-    content: '';
-    position: absolute; bottom: -60px; right: -60px;
-    width: 240px; height: 240px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 48px; }
-  .logo-icon {
-    width: 48px; height: 48px; border-radius: 14px;
-    background: linear-gradient(135deg, #2563EB, #1D4ED8);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 24px; box-shadow: 0 8px 24px rgba(37,99,235,0.4);
-  }
-  .logo-text { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
-  .logo-text span { color: #3B82F6; }
-
-  .hero-title {
-    font-size: 42px; font-weight: 900; color: #fff;
-    line-height: 1.1; letter-spacing: -1.5px; margin-bottom: 16px;
-  }
-  .hero-title span { color: #3B82F6; }
-  .hero-sub { font-size: 15px; color: #4B6080; line-height: 1.7; margin-bottom: 40px; }
-
-  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 40px; }
-  .stat {
-    background: rgba(37,99,235,0.07); border: 1px solid rgba(37,99,235,0.15);
-    border-radius: 12px; padding: 16px 18px;
-  }
-  .stat-n { font-size: 26px; font-weight: 800; color: #3B82F6; font-family: 'Outfit', sans-serif; }
-  .stat-l { font-size: 11px; color: #4B6080; margin-top: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
-
-  .features { display: flex; flex-direction: column; gap: 10px; }
-  .feature { display: flex; align-items: center; gap: 10px; }
-  .feature-dot { width: 6px; height: 6px; border-radius: 50%; background: #2563EB; flex-shrink: 0; }
-  .feature-text { font-size: 13px; color: #4B6080; }
-
-  /* RIGHT PANEL */
-  .right { flex: 0.9; padding: 48px 44px; display: flex; flex-direction: column; }
-
-  .tab-row {
-    display: flex; gap: 4px; background: rgba(255,255,255,0.03);
-    border-radius: 12px; padding: 4px; margin-bottom: 32px;
-    border: 1px solid rgba(37,99,235,0.1);
-  }
-  .tab {
-    flex: 1; padding: 9px; border: none; background: transparent;
-    color: #4B6080; font-family: 'Outfit', sans-serif; font-size: 13px;
-    font-weight: 600; border-radius: 9px; cursor: pointer; transition: all 0.2s;
-  }
-  .tab.active { background: #2563EB; color: #fff; box-shadow: 0 0 16px rgba(37,99,235,0.4); }
-
-  .form-title { font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 6px; }
-  .form-sub   { font-size: 13px; color: #4B6080; margin-bottom: 28px; }
-
-  .input-group { margin-bottom: 16px; }
-  .input-label { font-size: 11px; font-weight: 600; color: #94A3B8; margin-bottom: 6px;
-                 letter-spacing: 0.5px; text-transform: uppercase; }
-  .input-wrap  { position: relative; }
-  .input-icon  { position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-                 font-size: 16px; pointer-events: none; }
-  input.field {
-    width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(37,99,235,0.18);
-    border-radius: 10px; padding: 12px 14px 12px 42px;
-    color: #E2E8F0; font-size: 14px; font-family: 'Outfit', sans-serif;
-    transition: all 0.2s; outline: none;
-  }
-  input.field:focus {
-    border-color: rgba(37,99,235,0.6); background: rgba(37,99,235,0.06);
-    box-shadow: 0 0 16px rgba(37,99,235,0.15);
-  }
-  input.field::placeholder { color: #334155; }
-
-  .role-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
-  .role-btn {
-    padding: 9px 4px; border: 1px solid rgba(37,99,235,0.2); border-radius: 8px;
-    background: transparent; color: #4B6080; font-size: 12px; font-weight: 600;
-    cursor: pointer; text-align: center; transition: all 0.2s; font-family: 'Outfit', sans-serif;
-  }
-  .role-btn.active { border-color: #2563EB; background: rgba(37,99,235,0.12); color: #3B82F6; }
-  .role-btn:hover  { border-color: rgba(37,99,235,0.5); color: #94A3B8; }
-
-  .btn-primary {
-    width: 100%; padding: 13px; background: linear-gradient(135deg, #2563EB, #1D4ED8);
-    border: none; border-radius: 11px; color: #fff; font-size: 14px; font-weight: 700;
-    font-family: 'Outfit', sans-serif; cursor: pointer; letter-spacing: 0.3px;
-    box-shadow: 0 8px 24px rgba(37,99,235,0.35); transition: all 0.2s; margin-top: 8px;
-  }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(37,99,235,0.5); }
-  .btn-primary:active { transform: translateY(0); }
-
-  .divider { display: flex; align-items: center; gap: 12px; margin: 24px 0; }
-  .div-line { flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
-  .div-text  { font-size: 11px; color: #334155; letter-spacing: 0.5px; text-transform: uppercase; }
-
-  .demo-box {
-    background: rgba(37,99,235,0.05); border: 1px solid rgba(37,99,235,0.12);
-    border-radius: 10px; padding: 14px 16px;
-  }
-  .demo-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
-  .demo-badge {
-    font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px;
-    background: rgba(37,99,235,0.15); color: #3B82F6;
-  }
-  .demo-cred { font-size: 12px; color: #4B6080; font-family: 'JetBrains Mono', monospace; }
-
-  .msg { padding: 10px 14px; border-radius: 9px; font-size: 13px; font-weight: 500; margin-top: 12px; }
-  .msg-err { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.3);  color: #EF4444; }
-  .msg-ok  { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #10B981; }
-  .msg-inf { background: rgba(37,99,235,0.1);  border: 1px solid rgba(37,99,235,0.2);  color: #3B82F6; }
-
-  .spinner { display:inline-block; width:14px;height:14px; border:2px solid rgba(255,255,255,0.3);
-             border-top-color:#fff; border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle;margin-right:8px; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-
-  @media(max-width:700px) {
-    .left { display: none; }
-    .right { padding: 36px 28px; }
-    .container { min-height: unset; }
-  }
-</style>
-</head>
-<body>
-<div class="orb orb1"></div>
-<div class="orb orb2"></div>
-<div class="orb orb3"></div>
-
-<div class="container">
-  <!-- LEFT -->
-  <div class="left">
-    <div>
-      <div class="logo">
-        <div class="logo-icon">🚧</div>
-        <div class="logo-text">Pothole<span>AI</span></div>
-      </div>
-      <h1 class="hero-title">India's Road<br>Intelligence<br><span>Platform</span></h1>
-      <p class="hero-sub">
-        Real-time AI detection, classification and<br>
-        autonomous resolution of road damage<br>
-        across all 36 states and union territories.
-      </p>
-      <div class="stat-grid">
-        <div class="stat"><div class="stat-n">36</div><div class="stat-l">States & UTs</div></div>
-        <div class="stat"><div class="stat-n">YOLOv11</div><div class="stat-l">AI Detection</div></div>
-        <div class="stat"><div class="stat-n">OSM</div><div class="stat-l">Live Map Data</div></div>
-        <div class="stat"><div class="stat-n">0</div><div class="stat-l">Human Triggers</div></div>
-      </div>
-    </div>
-    <div class="features">
-      <div class="feature"><div class="feature-dot"></div><div class="feature-text">Upload any road photo — AI detects instantly</div></div>
-      <div class="feature"><div class="feature-dot"></div><div class="feature-text">Auto-assigns to nearest PWD office</div></div>
-      <div class="feature"><div class="feature-dot"></div><div class="feature-text">Escalates unresolved issues automatically</div></div>
-      <div class="feature"><div class="feature-dot"></div><div class="feature-text">Live heatmap across all of India</div></div>
-    </div>
-  </div>
-
-  <!-- RIGHT -->
-  <div class="right">
-    <div class="tab-row">
-      <button class="tab active" id="tab-login"  onclick="showTab('login')">Sign In</button>
-      <button class="tab"        id="tab-signup" onclick="showTab('signup')">Create Account</button>
-    </div>
-
-    <!-- LOGIN FORM -->
-    <div id="login-form">
-      <div class="form-title">Welcome back</div>
-      <div class="form-sub">Sign in to your PotholeAI account</div>
-      <div class="input-group">
-        <div class="input-label">Username</div>
-        <div class="input-wrap">
-          <span class="input-icon">👤</span>
-          <input class="field" id="l-user" placeholder="Enter your username" autocomplete="username">
+    with left_col:
+        st.markdown("""
+        <div style="padding:60px 40px 40px 20px">
+          <div class="brand">Pothole<span>AI</span></div>
+          <p class="brand-sub">
+            Real-time AI detection and autonomous resolution<br>
+            of road damage across all of India.<br>
+            Powered by YOLOv11 · OpenStreetMap · Supabase.
+          </p>
+          <div class="stat-grid">
+            <div class="stat-box"><div class="stat-n">36</div><div class="stat-l">States & UTs</div></div>
+            <div class="stat-box"><div class="stat-n">YOLOv11</div><div class="stat-l">AI Model</div></div>
+            <div class="stat-box"><div class="stat-n">OSM</div><div class="stat-l">Live Road Data</div></div>
+            <div class="stat-box"><div class="stat-n">AUTO</div><div class="stat-l">Zero Human Trigger</div></div>
+          </div>
+          <div class="feat">Upload any road photo — AI detects potholes instantly</div>
+          <div class="feat">Auto-assigns to nearest PWD office via GPS</div>
+          <div class="feat">Escalates unresolved issues automatically</div>
+          <div class="feat">Live heatmap across all of India</div>
         </div>
-      </div>
-      <div class="input-group">
-        <div class="input-label">Password</div>
-        <div class="input-wrap">
-          <span class="input-icon">🔑</span>
-          <input class="field" id="l-pass" type="password" placeholder="Enter your password" autocomplete="current-password">
-        </div>
-      </div>
-      <button class="btn-primary" id="login-btn" onclick="doLogin()">Sign In →</button>
-      <div id="login-msg"></div>
-      <div class="divider"><div class="div-line"></div><div class="div-text">Demo Accounts</div><div class="div-line"></div></div>
-      <div class="demo-box">
-        <div class="demo-row"><span class="demo-badge">👑 Admin</span><span class="demo-cred">admin / admin123</span></div>
-        <div class="demo-row"><span class="demo-badge">🏗️ Engineer</span><span class="demo-cred">engineer / pwd123</span></div>
-        <div class="demo-row"><span class="demo-badge">👤 Public</span><span class="demo-cred">public / pub123</span></div>
-      </div>
-    </div>
+        """, unsafe_allow_html=True)
 
-    <!-- SIGNUP FORM -->
-    <div id="signup-form" style="display:none">
-      <div class="form-title">Create account</div>
-      <div class="form-sub">Join PotholeAI — help fix India's roads</div>
-      <div class="input-group">
-        <div class="input-label">Username</div>
-        <div class="input-wrap">
-          <span class="input-icon">👤</span>
-          <input class="field" id="s-user" placeholder="Choose a username">
-        </div>
-      </div>
-      <div class="input-group">
-        <div class="input-label">Email</div>
-        <div class="input-wrap">
-          <span class="input-icon">📧</span>
-          <input class="field" id="s-email" type="email" placeholder="your@email.com">
-        </div>
-      </div>
-      <div class="input-group">
-        <div class="input-label">Password</div>
-        <div class="input-wrap">
-          <span class="input-icon">🔑</span>
-          <input class="field" id="s-pass" type="password" placeholder="Minimum 6 characters">
-        </div>
-      </div>
-      <div class="input-group">
-        <div class="input-label">Confirm Password</div>
-        <div class="input-wrap">
-          <span class="input-icon">🔑</span>
-          <input class="field" id="s-conf" type="password" placeholder="Repeat password">
-        </div>
-      </div>
-      <div class="input-label" style="margin-bottom:8px">Role</div>
-      <div class="role-row">
-        <button class="role-btn active" id="r-pub" onclick="setRole('Public')">👤 Public</button>
-        <button class="role-btn"        id="r-eng" onclick="setRole('Engineer')">🏗️ Engineer</button>
-        <button class="role-btn"        id="r-adm" onclick="setRole('Admin')">👑 Admin</button>
-      </div>
-      <button class="btn-primary" id="signup-btn" onclick="doSignup()">Create Account →</button>
-      <div id="signup-msg"></div>
-    </div>
-  </div>
-</div>
+    with right_col:
+        st.markdown("<div style='padding:50px 20px 20px 10px'>", unsafe_allow_html=True)
 
-<script>
-var selectedRole = 'Public';
-var activeTab    = 'login';
+        # Tab state
+        if "auth_tab" not in st.session_state:
+            st.session_state.auth_tab = "login"
 
-function showTab(tab) {
-  activeTab = tab;
-  document.getElementById('login-form').style.display  = tab==='login'  ? '' : 'none';
-  document.getElementById('signup-form').style.display = tab==='signup' ? '' : 'none';
-  document.getElementById('tab-login').className  = 'tab' + (tab==='login'  ? ' active' : '');
-  document.getElementById('tab-signup').className = 'tab' + (tab==='signup' ? ' active' : '');
-}
+        # Tab buttons
+        tc1, tc2 = st.columns(2)
+        with tc1:
+            login_type = "primary" if st.session_state.auth_tab == "login" else "secondary"
+            if st.button("Sign In", key="tab_li", use_container_width=True, type=login_type):
+                st.session_state.auth_tab = "login"
+                st.rerun()
+        with tc2:
+            signup_type = "primary" if st.session_state.auth_tab == "signup" else "secondary"
+            if st.button("Create Account", key="tab_su", use_container_width=True, type=signup_type):
+                st.session_state.auth_tab = "signup"
+                st.rerun()
 
-function setRole(r) {
-  selectedRole = r;
-  ['pub','eng','adm'].forEach(function(id) { document.getElementById('r-'+id).className='role-btn'; });
-  var map = {Public:'pub', Engineer:'eng', Admin:'adm'};
-  document.getElementById('r-'+map[r]).className='role-btn active';
-}
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
-function setMsg(id, txt, type) {
-  var el = document.getElementById(id);
-  el.className = 'msg msg-'+type;
-  el.textContent = txt;
-}
+        # ── LOGIN FORM ──
+        if st.session_state.auth_tab == "login":
+            st.markdown("<div class='auth-title'>Welcome back 👋</div>", unsafe_allow_html=True)
+            st.markdown("<div class='auth-sub'>Sign in to your PotholeAI account</div>", unsafe_allow_html=True)
 
-function doLogin() {
-  var u = document.getElementById('l-user').value.trim();
-  var p = document.getElementById('l-pass').value;
-  if (!u || !p) { setMsg('login-msg','Please enter username and password','err'); return; }
-  var btn = document.getElementById('login-btn');
-  btn.innerHTML = '<span class="spinner"></span>Signing in...';
-  btn.disabled = true;
-  // Pass to Streamlit via URL param + meta tag trick
-  var url = new URL(window.parent.location.href);
-  url.searchParams.set('__auth_user', u);
-  url.searchParams.set('__auth_pass', p);
-  url.searchParams.set('__auth_action', 'login');
-  window.parent.history.replaceState({}, '', url);
-  // Trigger Streamlit rerun by sending a postMessage
-  window.parent.postMessage({type:'streamlit:rerun'}, '*');
-  setTimeout(function(){
-    btn.innerHTML = 'Sign In →'; btn.disabled=false;
-    setMsg('login-msg','If nothing happened, use the Streamlit form below ↓','inf');
-  }, 2000);
-}
+            username = st.text_input("USERNAME", placeholder="Enter your username", key="li_u")
+            password = st.text_input("PASSWORD", placeholder="Enter your password",
+                                     type="password", key="li_p")
 
-function doSignup() {
-  var u=document.getElementById('s-user').value.trim();
-  var e=document.getElementById('s-email').value.trim();
-  var p=document.getElementById('s-pass').value;
-  var c=document.getElementById('s-conf').value;
-  if (!u||!e||!p||!c) { setMsg('signup-msg','Please fill all fields','err'); return; }
-  if (p!==c)            { setMsg('signup-msg','Passwords do not match','err'); return; }
-  if (p.length<6)       { setMsg('signup-msg','Password must be 6+ characters','err'); return; }
-  var btn = document.getElementById('signup-btn');
-  btn.innerHTML='<span class="spinner"></span>Creating account...';
-  btn.disabled=true;
-  var url = new URL(window.parent.location.href);
-  url.searchParams.set('__auth_user',   u);
-  url.searchParams.set('__auth_email',  e);
-  url.searchParams.set('__auth_pass',   p);
-  url.searchParams.set('__auth_role',   selectedRole);
-  url.searchParams.set('__auth_action', 'signup');
-  window.parent.history.replaceState({}, '', url);
-  window.parent.postMessage({type:'streamlit:rerun'}, '*');
-  setTimeout(function(){
-    btn.innerHTML='Create Account →'; btn.disabled=false;
-    setMsg('signup-msg','Use the Streamlit form below if page didn\'t update ↓','inf');
-  }, 2000);
-}
-
-// Enter key support
-document.addEventListener('keydown', function(e){
-  if(e.key==='Enter') { activeTab==='login' ? doLogin() : doSignup(); }
-});
-</script>
-</body>
-</html>
-"""
-    # Render the React-style HTML
-    components.html(LOGIN_REACT, height=640, scrolling=False)
-
-    st.markdown("---")
-    st.markdown(
-        "<p style='text-align:center;color:#334155;font-size:13px;'>— Or use the form below —</p>",
-        unsafe_allow_html=True)
-
-    # Read URL params from the React JS bridge
-    qp = st.query_params
-    auth_action = qp.get("__auth_action", "")
-    auth_user   = qp.get("__auth_user",   "")
-    auth_pass   = qp.get("__auth_pass",   "")
-    auth_email  = qp.get("__auth_email",  "")
-    auth_role   = qp.get("__auth_role",   "Public")
-
-    if auth_action == "login" and auth_user and auth_pass:
-        ok, user = auth_login(auth_user, auth_pass)
-        if ok:
-            st.session_state.logged_in = True
-            st.session_state.username  = user["username"]
-            st.session_state.role      = user["role"]
-            st.session_state.uname     = user.get("email", user["username"])
-            st.session_state.icon      = {"Admin":"👑","Engineer":"🏗️","Public":"👤"}.get(user["role"],"👤")
-            st.query_params.clear()
-            st.rerun()
-        else:
-            st.error("❌ Invalid credentials")
-
-    if auth_action == "signup" and auth_user and auth_pass and auth_email:
-        ok, msg = auth_signup(auth_user, auth_email, auth_pass, auth_role)
-        if ok:
-            st.success("✅ Account created! Sign in now.")
-            st.query_params.clear()
-        else:
-            st.error(f"❌ {msg}")
-
-    # Fallback Streamlit form (always visible below the React UI)
-    with st.expander("📝 Sign In / Sign Up Form", expanded=False):
-        tab_login, tab_signup = st.tabs(["Sign In", "Create Account"])
-
-        with tab_login:
-            u_in = st.text_input("Username", key="fl_u")
-            p_in = st.text_input("Password", type="password", key="fl_p")
-            if st.button("Sign In", key="fl_btn", use_container_width=True):
-                if u_in and p_in:
-                    ok, user = auth_login(u_in, p_in)
+            if st.button("Sign In →", key="li_btn", use_container_width=True):
+                if not username or not password:
+                    st.warning("Please enter username and password")
+                else:
+                    ok, user = auth_login(username, password)
                     if ok:
                         st.session_state.logged_in = True
                         st.session_state.username  = user["username"]
@@ -757,28 +461,49 @@ document.addEventListener('keydown', function(e){
                         st.session_state.icon      = {"Admin":"👑","Engineer":"🏗️","Public":"👤"}.get(user["role"],"👤")
                         st.rerun()
                     else:
-                        st.error("❌ Invalid credentials")
+                        st.error("❌ Invalid username or password")
 
-        with tab_signup:
-            su = st.text_input("Username",  key="fs_u")
-            se = st.text_input("Email",     key="fs_e")
-            sp = st.text_input("Password",  type="password", key="fs_p")
-            sc = st.text_input("Confirm",   type="password", key="fs_c")
-            sr = st.selectbox("Role", ["Public","Engineer","Admin"], key="fs_r")
-            if st.button("Create Account", key="fs_btn", use_container_width=True):
-                if su and se and sp and sc:
-                    if sp != sc:
-                        st.error("Passwords don't match")
-                    elif len(sp) < 6:
-                        st.error("Password too short")
+            st.markdown("""
+            <div class="demo-box">
+              <div style="font-size:11px;color:#334155;font-weight:700;margin-bottom:8px;letter-spacing:0.5px">DEMO ACCOUNTS</div>
+              <div class="demo-row"><span class="demo-badge">👑 Admin</span> admin / admin123</div>
+              <div class="demo-row"><span class="demo-badge">🏗️ Engineer</span> engineer / pwd123</div>
+              <div class="demo-row"><span class="demo-badge">👤 Public</span> public / pub123</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── SIGNUP FORM ──
+        else:
+            st.markdown("<div class='auth-title'>Create account ✨</div>", unsafe_allow_html=True)
+            st.markdown("<div class='auth-sub'>Join PotholeAI — help fix India's roads</div>", unsafe_allow_html=True)
+
+            new_user = st.text_input("USERNAME",         placeholder="Choose a username",    key="su_u")
+            new_email= st.text_input("EMAIL",            placeholder="your@email.com",       key="su_e")
+            new_pass = st.text_input("PASSWORD",         placeholder="Minimum 6 characters", type="password", key="su_p")
+            new_conf = st.text_input("CONFIRM PASSWORD", placeholder="Repeat password",      type="password", key="su_c")
+            new_role = st.selectbox("ROLE", ["Public","Engineer","Admin"], key="su_r")
+
+            if st.button("Create Account →", key="su_btn", use_container_width=True):
+                if not all([new_user, new_email, new_pass, new_conf]):
+                    st.warning("Please fill all fields")
+                elif new_pass != new_conf:
+                    st.error("❌ Passwords don't match")
+                elif len(new_pass) < 6:
+                    st.error("❌ Password must be at least 6 characters")
+                else:
+                    ok, msg = auth_signup(new_user, new_email, new_pass, new_role)
+                    if ok:
+                        st.success("✅ Account created! Click Sign In to continue.")
+                        st.session_state.auth_tab = "login"
+                        st.rerun()
                     else:
-                        ok, msg = auth_signup(su, se, sp, sr)
-                        if ok:
-                            st.success("✅ Account created! Sign in above.")
-                        else:
-                            st.error(f"❌ {msg}")
+                        st.error(f"❌ {msg}")
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     st.stop()
+
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1045,22 +770,12 @@ function g(){
             else:
                 st.error("Detection model unavailable")
 
-    # Auto-load from DB if empty
-    if not st.session_state.complaints:
+    # Auto-load from DB only on first login (not on every rerun)
+    if not st.session_state.complaints and not st.session_state.get("db_loaded"):
+        st.session_state.db_loaded = True
         loaded = db_load()
         if loaded:
             st.session_state.complaints = loaded
-            st.session_state.auto_on    = True
-            st.session_state.last_cycle = datetime.now().isoformat()
-        elif os.path.exists("output/complaints.json"):
-            try:
-                with open("output/complaints.json") as f:
-                    raw = f.read().strip()
-                if raw:
-                    st.session_state.complaints = json.loads(raw)
-                    db_save(st.session_state.complaints)
-            except Exception:
-                pass
             st.session_state.auto_on    = True
             st.session_state.last_cycle = datetime.now().isoformat()
 
