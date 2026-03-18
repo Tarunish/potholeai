@@ -90,11 +90,7 @@ def auth_signup(username, email, password, role="Public"):
     return (True, "ok") if res else (False, "Supabase error — run SQL setup first")
 
 def auth_login(username, password):
-    rows = _supa("GET", "app_users",
-                 params=f"?username=eq.{username}&password_hash=eq.{_hash(password)}&limit=1")
-    if rows:
-        return True, rows[0]
-    # fallback demo accounts (hardcoded)
+    # Check demo accounts FIRST (instant, no network)
     DEMO = {
         "admin":    {"username":"admin",    "role":"Admin",    "email":"admin@potholeai.in"},
         "engineer": {"username":"engineer", "role":"Engineer", "email":"eng@potholeai.in"},
@@ -103,6 +99,11 @@ def auth_login(username, password):
     DEMO_PW = {"admin":"admin123","engineer":"pwd123","public":"pub123"}
     if username in DEMO and DEMO_PW.get(username) == password:
         return True, DEMO[username]
+    # Then check Supabase for real accounts
+    rows = _supa("GET", "app_users",
+                 params=f"?username=eq.{username}&password_hash=eq.{_hash(password)}&limit=1")
+    if rows:
+        return True, rows[0]
     return False, None
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -311,20 +312,24 @@ for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# Clear stale local data file on first run so fake data never shows
-if not st.session_state.get("startup_cleaned"):
-    st.session_state.startup_cleaned = True
-    try:
-        if os.path.exists("output/complaints.json"):
-            with open("output/complaints.json","w") as _f:
-                _f.write("[]")
-    except Exception:
-        pass
+# Clear stale local data on first run so fake data never shows
+# Always wipe local file on startup - no stale fake data ever
+try:
+    os.makedirs("output", exist_ok=True)
+    with open("output/complaints.json","w") as _f:
+        _f.write("[]")
+except Exception:
+    pass
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  REACT LOGIN PAGE
 # ─────────────────────────────────────────────────────────────────────────────
 if not st.session_state.logged_in:
+
+    # Hard stop if somehow logged_in was set mid-run
+    if st.session_state.get("just_logged_in"):
+        st.session_state.just_logged_in = False
+        st.rerun()
 
     # Full blank canvas - hide sidebar and all chrome
     st.markdown("""
@@ -415,18 +420,16 @@ if not st.session_state.logged_in:
         if "auth_tab" not in st.session_state:
             st.session_state.auth_tab = "login"
 
-        # Tab buttons
-        tc1, tc2 = st.columns(2)
-        with tc1:
-            login_type = "primary" if st.session_state.auth_tab == "login" else "secondary"
-            if st.button("Sign In", key="tab_li", width="stretch", type=login_type):
-                st.session_state.auth_tab = "login"
-                st.rerun()
-        with tc2:
-            signup_type = "primary" if st.session_state.auth_tab == "signup" else "secondary"
-            if st.button("Create Account", key="tab_su", width="stretch", type=signup_type):
-                st.session_state.auth_tab = "signup"
-                st.rerun()
+        # Tab toggle using radio (always works)
+        tab_choice = st.radio(
+            "tab", ["🔑 Sign In", "✨ Create Account"],
+            index=0 if st.session_state.auth_tab == "login" else 1,
+            horizontal=True, label_visibility="collapsed"
+        )
+        if "Sign In" in tab_choice:
+            st.session_state.auth_tab = "login"
+        else:
+            st.session_state.auth_tab = "signup"
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
@@ -435,21 +438,23 @@ if not st.session_state.logged_in:
             st.markdown("<div class='auth-title'>Welcome back 👋</div>", unsafe_allow_html=True)
             st.markdown("<div class='auth-sub'>Sign in to your PotholeAI account</div>", unsafe_allow_html=True)
 
-            username = st.text_input("USERNAME", placeholder="Enter your username", key="li_u")
-            password = st.text_input("PASSWORD", placeholder="Enter your password",
-                                     type="password", key="li_p")
+            with st.form("login_form"):
+                username = st.text_input("USERNAME", placeholder="Enter your username")
+                password = st.text_input("PASSWORD", placeholder="Enter your password", type="password")
+                submitted = st.form_submit_button("Sign In →", use_container_width=True)
 
-            if st.button("Sign In →", key="li_btn", width="stretch"):
+            if submitted:
                 if not username or not password:
                     st.warning("Please enter username and password")
                 else:
                     ok, user = auth_login(username, password)
                     if ok:
-                        st.session_state.logged_in = True
-                        st.session_state.username  = user["username"]
-                        st.session_state.role      = user["role"]
-                        st.session_state.uname     = user.get("email", user["username"])
-                        st.session_state.icon      = {"Admin":"👑","Engineer":"🏗️","Public":"👤"}.get(user["role"],"👤")
+                        st.session_state.logged_in     = True
+                        st.session_state.just_logged_in= True
+                        st.session_state.username      = user["username"]
+                        st.session_state.role          = user["role"]
+                        st.session_state.uname         = user.get("email", user["username"])
+                        st.session_state.icon          = {"Admin":"👑","Engineer":"🏗️","Public":"👤"}.get(user["role"],"👤")
                         st.rerun()
                     else:
                         st.error("❌ Invalid username or password")
@@ -468,13 +473,15 @@ if not st.session_state.logged_in:
             st.markdown("<div class='auth-title'>Create account ✨</div>", unsafe_allow_html=True)
             st.markdown("<div class='auth-sub'>Join PotholeAI — help fix India's roads</div>", unsafe_allow_html=True)
 
-            new_user = st.text_input("USERNAME",         placeholder="Choose a username",    key="su_u")
-            new_email= st.text_input("EMAIL",            placeholder="your@email.com",       key="su_e")
-            new_pass = st.text_input("PASSWORD",         placeholder="Minimum 6 characters", type="password", key="su_p")
-            new_conf = st.text_input("CONFIRM PASSWORD", placeholder="Repeat password",      type="password", key="su_c")
-            new_role = st.selectbox("ROLE", ["Public","Engineer","Admin"], key="su_r")
+            with st.form("signup_form"):
+                new_user  = st.text_input("USERNAME",         placeholder="Choose a username")
+                new_email = st.text_input("EMAIL",            placeholder="your@email.com")
+                new_pass  = st.text_input("PASSWORD",         placeholder="Minimum 6 characters", type="password")
+                new_conf  = st.text_input("CONFIRM PASSWORD", placeholder="Repeat password",      type="password")
+                new_role  = st.selectbox("ROLE", ["Public","Engineer","Admin"])
+                submitted_su = st.form_submit_button("Create Account →", use_container_width=True)
 
-            if st.button("Create Account →", key="su_btn", width="stretch"):
+            if submitted_su:
                 if not all([new_user, new_email, new_pass, new_conf]):
                     st.warning("Please fill all fields")
                 elif new_pass != new_conf:
@@ -500,6 +507,9 @@ if not st.session_state.logged_in:
 # ─────────────────────────────────────────────────────────────────────────────
 #  DASHBOARD  (logged-in users only)
 # ─────────────────────────────────────────────────────────────────────────────
+if not st.session_state.get("logged_in"):
+    st.stop()
+
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
 role = st.session_state.role
 CYCLE = 60
@@ -737,7 +747,7 @@ function g(){
         with open("pothole.jpg","wb") as f:
             f.write(uploaded.getbuffer())
         st.success("✅ Image ready")
-        if st.button("🔍 Detect & Submit", width="stretch"):
+        if st.button("🔍 Detect & Submit", use_container_width=True):
             if DETECT_OK:
                 with st.spinner("Running YOLOv11…"):
                     detect("pothole.jpg")
@@ -761,14 +771,9 @@ function g(){
             else:
                 st.error("Detection model unavailable")
 
-    # Auto-load from DB only on first login (not on every rerun)
-    if not st.session_state.complaints and not st.session_state.get("db_loaded"):
-        st.session_state.db_loaded = True
-        loaded = db_load()
-        if loaded:
-            st.session_state.complaints = loaded
-            st.session_state.auto_on    = True
-            st.session_state.last_cycle = datetime.now().isoformat()
+    # Auto-load from DB only if user explicitly uploaded before (check db_loaded flag)
+    # Do NOT auto-load on fresh login to avoid showing stale/fake data
+    pass  # Data loads only when user uploads an image
 
     st.markdown("---")
 
@@ -777,10 +782,10 @@ function g(){
         st.markdown("#### 🤖 Auto Mode")
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("▶️ Start", width="stretch"):
+            if st.button("▶️ Start", use_container_width=True):
                 st.session_state.auto_on = True
         with c2:
-            if st.button("⏸️ Pause", width="stretch"):
+            if st.button("⏸️ Pause", use_container_width=True):
                 st.session_state.auto_on = False
 
         if st.session_state.last_cycle:
@@ -807,7 +812,7 @@ function g(){
 
     # Clear data
     if role in ("Admin","Engineer"):
-        if st.button("🗑️ Clear All Data", type="primary", width="stretch"):
+        if st.button("🗑️ Clear All Data", type="primary", use_container_width=True):
             st.session_state.complaints = []
             st.session_state.notifs     = []
             st.session_state.auto_log   = []
@@ -896,7 +901,7 @@ with t_map:
                         f"Sev: {c.get('severity','')} | Status: {c.get('status','')}",
                         max_width=200)
                 ).add_to(m)
-            st_folium(m, width="stretch", height=450)
+            st_folium(m, use_container_width=True, height=450)
         elif not FOLIUM_OK:
             st.warning("Install folium + streamlit-folium for interactive maps")
         else:
@@ -911,9 +916,9 @@ with t_map:
         st.markdown("#### 📸 Detected Image")
         if st.session_state.det_img and os.path.exists(st.session_state.det_img):
             if PIL_OK:
-                st.image(Image.open(st.session_state.det_img), width="stretch")
+                st.image(Image.open(st.session_state.det_img), use_container_width=True)
             else:
-                st.image(st.session_state.det_img, width="stretch")
+                st.image(st.session_state.det_img, use_container_width=True)
         else:
             st.markdown("""
             <div style="background:#0D1525;border:2px dashed #162035;border-radius:12px;
@@ -938,7 +943,7 @@ with t_map:
                 font_color="#E2E8F0", showlegend=False,
                 height=210, margin=dict(l=0,r=0,t=0,b=0)
             )
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
 
 # ═══════════════════════════════ ANALYTICS ════════════════════════════════════
@@ -956,7 +961,7 @@ with t_an:
                 fig.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
                     font_color="#E2E8F0",height=320,coloraxis_showscale=False,
                     margin=dict(l=0,r=0,t=36,b=0),yaxis=dict(autorange="reversed"))
-                st.plotly_chart(fig, width="stretch")
+                st.plotly_chart(fig, use_container_width=True)
         with a2:
             fig2 = px.bar(
                 x=["Filed","Escalated","Repaired"], y=[filed,escalated,repaired],
@@ -966,7 +971,7 @@ with t_an:
             )
             fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",
                 font_color="#E2E8F0",height=320,showlegend=False,margin=dict(l=0,r=0,t=36,b=0))
-            st.plotly_chart(fig2, width="stretch")
+            st.plotly_chart(fig2, use_container_width=True)
 
         sc = Counter(c.get("district","Unknown") for c in all_c).most_common(16)
         if sc:
@@ -977,7 +982,7 @@ with t_an:
             )
             fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)",font_color="#E2E8F0",
                 height=280,margin=dict(l=0,r=0,t=36,b=0))
-            st.plotly_chart(fig3, width="stretch")
+            st.plotly_chart(fig3, use_container_width=True)
     else:
         st.info("📊 No data yet — run detection first")
 
@@ -1264,7 +1269,7 @@ with t_ig:
     with ig1:
         max_posts = st.slider("Max posts to fetch", 5, 50, 10)
         run_detection = st.checkbox("Run YOLOv11 on each image", value=False)
-        if st.button("🔍 Fetch Instagram Posts", width="stretch"):
+        if st.button("🔍 Fetch Instagram Posts", use_container_width=True):
             with st.spinner("Scraping Instagram for potholes..."):
                 if IG_MODULE_OK:
                     posts = ig_search_potholes(max_posts=max_posts)
@@ -1273,7 +1278,7 @@ with t_ig:
                 else:
                     st.error("instagram_integration.py not found")
 
-        if st.button("🤖 Full Pipeline (Detect + Save)", width="stretch"):
+        if st.button("🤖 Full Pipeline (Detect + Save)", use_container_width=True):
             with st.spinner("Running full Instagram pipeline..."):
                 if IG_MODULE_OK:
                     detect_fn = detect if DETECT_OK and run_detection else None
