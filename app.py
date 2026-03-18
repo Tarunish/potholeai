@@ -882,6 +882,35 @@ Rules:
                 </div>""",unsafe_allow_html=True)
 
         st.markdown("---")
+        # ── CLEAR ALL DATA ───────────────────────────────────────────────────
+        st.markdown("### 🗑️ Reset Data")
+        if st.button("🗑️ Clear ALL Data", type="primary"):
+            # Clear session
+            st.session_state.complaints = []
+            st.session_state.notifications = []
+            st.session_state.auto_log = []
+            st.session_state.cycle_count = 0
+            st.session_state.detected_img = None
+            # Clear local json file
+            import os as _os
+            if _os.path.exists("output/complaints.json"):
+                with open("output/complaints.json","w") as _f:
+                    _f.write("[]")
+            # Clear Supabase
+            try:
+                _req = _urllib_req.Request(
+                    f"{SUPA_URL}/rest/v1/complaints?pothole_id=neq.PLACEHOLDER",
+                    headers={**_supa_headers(), "Prefer": "return=minimal"},
+                    method="DELETE"
+                )
+                with _urllib_req.urlopen(_req, timeout=10, context=_ssl_ctx) as _r:
+                    pass
+            except Exception as _e:
+                st.warning(f"Supabase clear error: {_e}")
+            st.success("✅ All data cleared! Run fresh detection now.")
+            st.rerun()
+
+        st.markdown("---")
         st.markdown("### 🔍 Filter")
         fsev=st.multiselect("Severity:",["Critical","Moderate","Minor"],default=["Critical","Moderate","Minor"])
 
