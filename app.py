@@ -187,7 +187,7 @@ st.set_page_config(
     page_title="PotholeAI India",
     page_icon="🚧",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 GLOBAL_CSS = """
@@ -311,85 +311,76 @@ for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+# Clear stale local data file on first run so fake data never shows
+if not st.session_state.get("startup_cleaned"):
+    st.session_state.startup_cleaned = True
+    try:
+        if os.path.exists("output/complaints.json"):
+            with open("output/complaints.json","w") as _f:
+                _f.write("[]")
+    except Exception:
+        pass
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  REACT LOGIN PAGE
 # ─────────────────────────────────────────────────────────────────────────────
 if not st.session_state.logged_in:
 
-    # Full blank canvas
+    # Full blank canvas - hide sidebar and all chrome
     st.markdown("""
     <style>
-      section[data-testid="stSidebar"], [data-testid="collapsedControl"],
-      header[data-testid="stHeader"], [data-testid="stToolbar"],
-      [data-testid="stDecoration"], [data-testid="stStatusWidget"],
-      #MainMenu, footer { display:none !important; }
-      .main .block-container { padding:0 !important; max-width:100vw !important; margin:0 !important; }
-      .stApp { background:#060A12 !important; }
-
-      /* login card styles */
+      section[data-testid="stSidebar"] { display:none !important; }
+      [data-testid="collapsedControl"]  { display:none !important; }
+      header[data-testid="stHeader"]    { display:none !important; }
+      [data-testid="stToolbar"]         { display:none !important; }
+      [data-testid="stDecoration"]      { display:none !important; }
+      [data-testid="stStatusWidget"]    { display:none !important; }
+      #MainMenu, footer                 { display:none !important; }
+      .main .block-container            { padding:2rem !important; max-width:100vw !important; }
+      .stApp                            { background:#060A12 !important; }
       .login-wrap {
-        min-height:100vh; display:flex; align-items:center;
-        justify-content:center; padding:40px 20px;
+        min-height:calc(100vh - 4rem); display:flex; align-items:center;
+        justify-content:center; padding:20px;
         background: radial-gradient(ellipse at 30% 20%, #0D1F44 0%, #060A12 65%);
+        border-radius:16px;
       }
-      .login-left { flex:1.1; max-width:500px; padding-right:60px; }
+      .login-left { flex:1.1; max-width:480px; padding-right:50px; }
       .login-right {
-        flex:0.9; max-width:420px;
-        background:rgba(11,17,32,0.97);
-        border:1px solid rgba(37,99,235,0.2);
-        border-radius:20px; padding:40px 36px;
+        flex:0.9; max-width:400px;
+        background:rgba(11,17,32,0.97); border:1px solid rgba(37,99,235,0.2);
+        border-radius:20px; padding:36px 32px;
         box-shadow:0 32px 64px rgba(0,0,0,0.5);
       }
-      .brand { font-family:Outfit,sans-serif; font-size:52px; font-weight:900;
-               color:#fff; letter-spacing:-2px; line-height:1; margin-bottom:14px; }
+      .brand { font-family:Outfit,sans-serif; font-size:48px; font-weight:900;
+               color:#fff; letter-spacing:-2px; line-height:1; margin-bottom:12px; }
       .brand span { color:#3B82F6; }
-      .brand-sub { font-size:15px; color:#334155; line-height:1.8; margin-bottom:36px; }
-      .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:36px; }
+      .brand-sub { font-size:14px; color:#334155; line-height:1.8; margin-bottom:32px; }
+      .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:32px; }
       .stat-box { background:rgba(37,99,235,0.07); border:1px solid rgba(37,99,235,0.18);
-                  border-radius:12px; padding:16px 18px; }
-      .stat-n { font-size:28px; font-weight:900; color:#3B82F6; font-family:Outfit,sans-serif; }
-      .stat-l { font-size:11px; color:#334155; margin-top:2px; letter-spacing:0.5px; }
-      .feat { font-size:13px; color:#334155; display:flex; align-items:center;
-              gap:8px; margin-bottom:8px; }
-      .feat::before { content:""; width:5px; height:5px; border-radius:50%;
-                      background:#2563EB; flex-shrink:0; }
-      .auth-title { font-family:Outfit,sans-serif; font-size:24px; font-weight:800;
-                    color:#fff; margin-bottom:4px; }
-      .auth-sub { font-size:13px; color:#334155; margin-bottom:28px; }
-      .tab-strip { display:flex; gap:4px; background:rgba(255,255,255,0.04);
-                   border-radius:11px; padding:4px; margin-bottom:28px;
-                   border:1px solid rgba(37,99,235,0.1); }
-      .tab-pill { flex:1; padding:9px; border:none; background:transparent;
-                  color:#4B6080; font-size:13px; font-weight:700; border-radius:8px;
-                  cursor:pointer; font-family:Outfit,sans-serif; transition:all 0.2s; }
-      .tab-pill.on { background:#2563EB; color:#fff; box-shadow:0 0 16px rgba(37,99,235,0.4); }
-      .demo-box { background:rgba(37,99,235,0.06); border:1px solid rgba(37,99,235,0.15);
-                  border-radius:10px; padding:14px 16px; margin-top:20px; font-size:12px; }
-      .demo-row { display:flex; gap:8px; align-items:center; padding:3px 0; color:#4B6080; }
-      .demo-badge { background:rgba(37,99,235,0.15); color:#3B82F6; border-radius:20px;
-                    padding:1px 9px; font-size:11px; font-weight:700; }
-      .stTextInput > div > div > input {
+                  border-radius:10px; padding:14px 16px; }
+      .stat-n { font-size:24px; font-weight:900; color:#3B82F6; font-family:Outfit,sans-serif; }
+      .stat-l { font-size:11px; color:#334155; margin-top:2px; }
+      .feat { font-size:13px; color:#334155; padding:3px 0 3px 14px;
+              border-left:2px solid #1E3A5F; margin-bottom:8px; }
+      .stTextInput label { font-size:11px !important; color:#64748B !important; font-weight:600 !important; }
+      .stTextInput>div>div>input {
         background:rgba(255,255,255,0.04) !important;
         border:1px solid rgba(37,99,235,0.2) !important;
         border-radius:10px !important; color:#E2E8F0 !important;
-        padding:11px 16px !important; font-family:Outfit,sans-serif !important;
+        padding:11px 14px !important;
       }
-      .stTextInput > div > div > input:focus {
-        border-color:rgba(37,99,235,0.7) !important;
-        box-shadow:0 0 16px rgba(37,99,235,0.15) !important;
-      }
-      .stTextInput label { font-size:11px !important; color:#64748B !important;
-                           font-weight:600 !important; letter-spacing:0.5px !important; }
-      .stButton > button {
+      .stButton>button {
         background:linear-gradient(135deg,#2563EB,#1D4ED8) !important;
-        border-radius:11px !important; font-size:14px !important;
-        font-weight:700 !important; padding:12px !important;
-        box-shadow:0 8px 24px rgba(37,99,235,0.35) !important;
+        border-radius:10px !important; font-weight:700 !important;
+        font-size:14px !important; padding:11px !important;
+        box-shadow:0 6px 20px rgba(37,99,235,0.3) !important;
       }
-      .stSelectbox label { font-size:11px !important; color:#64748B !important; font-weight:600 !important; }
-      @media(max-width:750px) { .login-left { display:none !important; } }
+      .demo-box { background:rgba(37,99,235,0.06); border:1px solid rgba(37,99,235,0.15);
+                  border-radius:10px; padding:12px 14px; margin-top:18px; }
+      .demo-row { font-size:12px; color:#4B6080; padding:3px 0; }
+      .demo-badge { color:#3B82F6; font-weight:700; }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&display=swap" rel="stylesheet">
     """, unsafe_allow_html=True)
 
     # Two column layout: left=branding, right=form
