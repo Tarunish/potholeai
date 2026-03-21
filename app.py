@@ -15,16 +15,16 @@ except ImportError:
     DETECT_OK = False
 
 try:
-    from PIL import Image
-    PIL_OK = True
-except ImportError:
-    PIL_OK = False
-
-try:
     import cv2
     CV2_OK = True
 except ImportError:
     CV2_OK = False
+
+try:
+    from PIL import Image
+    PIL_OK = True
+except ImportError:
+    PIL_OK = False
 
 try:
     import folium
@@ -318,14 +318,15 @@ for k, v in DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# Clear stale local data on first run so fake data never shows
-# Always wipe local file on startup - no stale fake data ever
-try:
-    os.makedirs("output", exist_ok=True)
-    with open("output/complaints.json","w") as _f:
-        _f.write("[]")
-except Exception:
-    pass
+# Only wipe local complaints.json on truly fresh session (not on every rerun)
+if "session_initialized" not in st.session_state:
+    st.session_state["session_initialized"] = True
+    try:
+        os.makedirs("output", exist_ok=True)
+        with open("output/complaints.json","w") as _f:
+            _f.write("[]")
+    except Exception:
+        pass
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  REACT LOGIN PAGE
@@ -775,9 +776,7 @@ function g(){
                 st.success(f"✅ {len(st.session_state.complaints)} potholes detected & saved!")
                 st.rerun()
             else:
-                st.error("❌ Detection unavailable — ensure ultralytics, opencv & best.pt are installed")
-
-    st.caption("🎥 For video detection → use the **Video Detection** tab")
+                st.error("Detection model unavailable")
 
     # Auto-load from DB only if user explicitly uploaded before (check db_loaded flag)
     # Do NOT auto-load on fresh login to avoid showing stale/fake data
@@ -915,7 +914,7 @@ with t_vid:
                 if not DETECT_OK:
                     st.error("❌ Detection unavailable — ultralytics & best.pt must be installed")
                 elif not CV2_OK:
-                    st.error("❌ opencv-python-headless not installed. Run: pip install opencv-python-headless")
+                    st.error("❌ opencv-python-headless not installed")
                 else:
                     os.makedirs("output", exist_ok=True)
                     vid_path = "output/upload_video.mp4"
@@ -938,6 +937,9 @@ with t_vid:
                         if frame_idx % frame_skip_tab == 0:
                             frame_file = f"output/vframe_{saved_frames:04d}.jpg"
                             cv2.imwrite(frame_file, frame)
+                            # Save frame snapshot for display
+                            if saved_frames == 0:
+                                cv2.imwrite("output/video_first_frame.jpg", frame)
                             try:
                                 detect(frame_file)
                                 with open("output/complaints.json") as cf:
@@ -947,6 +949,7 @@ with t_vid:
                                 for c in fc:
                                     c["video_timestamp_sec"] = ts
                                     c["source"] = f"VIDEO:{uploaded_vid_tab.name}@{ts}s"
+                                    c["frame_snapshot"] = frame_file
                                 video_complaints.extend(fc)
                                 with open("output/complaints.json","w") as cf:
                                     cf.write("[]")
@@ -954,28 +957,32 @@ with t_vid:
                                 pass
                             saved_frames += 1
                             pct = min(int((frame_idx / max(total_frames,1)) * 100), 99)
-                            prog.progress(pct, text=f"🔍 Frame {frame_idx}/{total_frames} — {len(video_complaints)} potholes found so far")
+                            prog.progress(pct, text=f"🔍 Frame {frame_idx}/{total_frames} — {len(video_complaints)} potholes found")
                             status_box.markdown(f"""
                             <div style="background:#0D1525;border:1px solid #162035;border-radius:10px;
                                         padding:10px 14px;font-size:13px">
-                              ⏱️ <b style="color:#3B82F6">Frame {frame_idx}</b> / {total_frames} &nbsp;·&nbsp;
+                              ⏱️ <b style="color:#3B82F6">Frame {frame_idx}</b>/{total_frames} &nbsp;·&nbsp;
                               🔍 <b style="color:#F59E0B">{saved_frames}</b> frames scanned &nbsp;·&nbsp;
-                              🚧 <b style="color:#EF4444">{len(video_complaints)}</b> potholes detected
+                              🚧 <b style="color:#EF4444">{len(video_complaints)}</b> potholes found
                             </div>""", unsafe_allow_html=True)
                         frame_idx += 1
 
                     cap.release()
                     prog.progress(100, text="✅ Scan complete!")
 
-                    seen = set()
+                    # Deduplicate
+                    seen_ids = set()
                     unique = []
                     for c in video_complaints:
-                        if c["pothole_id"] not in seen:
-                            seen.add(c["pothole_id"])
+                        if c["pothole_id"] not in seen_ids:
+                            seen_ids.add(c["pothole_id"])
                             unique.append(c)
 
                     if unique:
-                        st.session_state.complaints.extend(unique)
+                        # Merge with existing complaints (photo + video together)
+                        existing_ids = {c["pothole_id"] for c in st.session_state.complaints}
+                        new_only = [c for c in unique if c["pothole_id"] not in existing_ids]
+                        st.session_state.complaints.extend(new_only)
                         if "device_gps" in st.session_state:
                             g = st.session_state["device_gps"]
                             for c in st.session_state.complaints:
@@ -986,63 +993,74 @@ with t_vid:
                         st.session_state.auto_on = True
                         st.session_state.last_cycle = datetime.now().isoformat()
                         st.session_state["vid_result"] = unique
-                        st.success(f"✅ {len(unique)} potholes detected from {saved_frames} frames!")
+                        st.success(f"✅ {len(new_only)} new potholes added from video ({saved_frames} frames scanned)!")
                         st.rerun()
                     else:
                         st.warning("⚠️ No potholes detected. Try reducing the frame skip value.")
 
     with vc2:
-        st.markdown("#### 📊 Last Video Scan Results")
+        st.markdown("#### 📸 Detected Frames")
         vid_results = st.session_state.get("vid_result", [])
         if vid_results:
+            # Show frame snapshots grouped by timestamp
             crit_v = sum(1 for c in vid_results if c.get("severity")=="Critical")
             mod_v  = sum(1 for c in vid_results if c.get("severity")=="Moderate")
             min_v  = sum(1 for c in vid_results if c.get("severity")=="Minor")
             for ico, lbl, val, clr in [
-                ("🚧","Total Found",   len(vid_results), "#3B82F6"),
-                ("🔴","Critical",      crit_v,           "#EF4444"),
-                ("🟠","Moderate",      mod_v,            "#F59E0B"),
-                ("🟢","Minor",         min_v,            "#10B981"),
+                ("🚧","Total",    len(vid_results), "#3B82F6"),
+                ("🔴","Critical", crit_v,           "#EF4444"),
+                ("🟠","Moderate", mod_v,            "#F59E0B"),
+                ("🟢","Minor",    min_v,            "#10B981"),
             ]:
                 st.markdown(f"""
                 <div style="background:#0D1525;border:1px solid #162035;border-radius:10px;
-                            padding:10px 14px;margin:5px 0;display:flex;justify-content:space-between">
+                            padding:10px 14px;margin:4px 0;display:flex;justify-content:space-between">
                   <span style="color:#4B6080;font-size:13px">{ico} {lbl}</span>
                   <b style="color:{clr};font-size:16px">{val}</b>
                 </div>""", unsafe_allow_html=True)
 
-            st.markdown("#### 🕐 Timeline")
-            for c in sorted(vid_results, key=lambda x: x.get("video_timestamp_sec",0))[:15]:
-                ts  = c.get("video_timestamp_sec", 0)
+            st.markdown("#### 📷 Frame Snapshots with Detections")
+            # Show detected frames (output images from YOLO)
+            shown = 0
+            for c in sorted(vid_results, key=lambda x: x.get("video_timestamp_sec",0)):
+                snap = c.get("frame_snapshot","")
+                det_img = "output/detected.jpg"
+                ts = c.get("video_timestamp_sec", 0)
                 sev = c.get("severity","Minor")
                 clr = {"Critical":"#EF4444","Moderate":"#F59E0B","Minor":"#10B981"}.get(sev,"#888")
-                st.markdown(f"""
-                <div style="background:#0D1525;border-left:3px solid {clr};border-radius:8px;
-                            padding:8px 12px;margin:3px 0;font-size:12px">
-                  <b style="color:{clr}">⏱ {ts}s</b> · {c.get('pothole_id','')[-10:]}
-                  · <b style="color:{clr}">{sev}</b>
-                  · {c.get('location','Unknown')[:40]}
-                </div>""", unsafe_allow_html=True)
+                if snap and os.path.exists(snap) and shown < 6:
+                    st.markdown(f"""
+                    <div style="background:#0D1525;border-left:3px solid {clr};border-radius:8px;
+                                padding:6px 10px;margin:4px 0;font-size:11px">
+                      <b style="color:{clr}">⏱ {ts}s</b> · <b style="color:{clr}">{sev}</b>
+                      · {c.get('location','Unknown')[:35]}
+                    </div>""", unsafe_allow_html=True)
+                    if PIL_OK:
+                        try:
+                            st.image(Image.open(snap), use_container_width=True)
+                            shown += 1
+                        except Exception:
+                            pass
         else:
             st.markdown("""
             <div style="background:#0D1525;border:2px dashed #162035;border-radius:14px;
                         padding:60px 20px;text-align:center;margin-top:10px">
               <div style="font-size:48px;margin-bottom:12px">🎥</div>
-              <div style="color:#334155;font-size:14px">Upload a video and run detection<br>Results will appear here</div>
+              <div style="color:#334155;font-size:14px">Upload a video and click<br><b>Start Video Detection</b><br>Frame photos will appear here</div>
             </div>""", unsafe_allow_html=True)
 
         st.markdown("#### ℹ️ How It Works")
         st.markdown("""
         <div style="background:#0D1525;border:1px solid #162035;border-radius:10px;padding:14px;font-size:12px;line-height:2">
-          <b style="color:#3B82F6">1.</b> Upload MP4 / AVI / MOV / MKV video<br>
+          <b style="color:#3B82F6">1.</b> Upload MP4/AVI/MOV/MKV road video<br>
           <b style="color:#3B82F6">2.</b> Set frame skip (lower = more thorough)<br>
-          <b style="color:#3B82F6">3.</b> YOLOv11 scans each sampled frame<br>
-          <b style="color:#3B82F6">4.</b> Each pothole tagged with video timestamp<br>
-          <b style="color:#3B82F6">5.</b> All results saved to All India Report
+          <b style="color:#3B82F6">3.</b> YOLOv11 detects potholes in each frame<br>
+          <b style="color:#3B82F6">4.</b> Snapshot saved for every detection<br>
+          <b style="color:#3B82F6">5.</b> All results merged with photo detections
         </div>""", unsafe_allow_html=True)
 
 
-
+# ═══════════════════════════════ MAP ══════════════════════════════════════════
 with t_map:
     mc1, mc2 = st.columns([1.45, 1])
     with mc1:
@@ -1154,26 +1172,53 @@ with t_an:
 # ═══════════════════════════════ WEATHER ══════════════════════════════════════
 with t_wx:
     st.markdown("#### 🌤️ Weather & Road Risk Index")
-    crit_loc = [c for c in all_c if c.get("severity")=="Critical" and (c.get("gps") or {}).get("lat")][:6]
-    if crit_loc:
-        for i in range(0, len(crit_loc), 3):
+
+    # Get unique locations — deduplicate by rounding GPS to 2 decimal places
+    seen_gps = set()
+    unique_loc = []
+    for c in all_c:
+        gps = c.get("gps") or {}
+        lat = gps.get("lat")
+        lon = gps.get("lon")
+        if not lat or not lon:
+            continue
+        key = (round(lat, 2), round(lon, 2))  # ~1km grid dedup
+        if key not in seen_gps:
+            seen_gps.add(key)
+            unique_loc.append(c)
+        if len(unique_loc) >= 6:
+            break
+
+    # Fallback to all_c if no unique GPS found
+    if not unique_loc:
+        unique_loc = [c for c in all_c if (c.get("gps") or {}).get("lat")][:6]
+
+    if unique_loc:
+        for i in range(0, len(unique_loc), 3):
             wc = st.columns(3)
-            for j, c in enumerate(crit_loc[i:i+3]):
-                w = get_weather(c["gps"]["lat"], c["gps"]["lon"])
+            for j, c in enumerate(unique_loc[i:i+3]):
+                lat = c["gps"]["lat"]
+                lon = c["gps"]["lon"]
+                w = get_weather(lat, lon)
                 rsk, rclr = risk_label(calc_risk([c]))
+                sev = c.get("severity", "Minor")
+                sev_clr = {"Critical":"#EF4444","Moderate":"#F59E0B","Minor":"#10B981"}.get(sev,"#888")
+                weather_icon = "🌧️" if "rain" in w["desc"].lower() else "⛈️" if "storm" in w["desc"].lower() else "☁️" if "cloud" in w["desc"].lower() else "☀️"
                 with wc[j]:
                     st.markdown(f"""
                     <div class="c" style="text-align:center;border-left:none;border-top:3px solid {rclr}">
-                      <div style="font-size:11px;color:#4B6080">{c['location'][:36]}</div>
-                      <div style="font-size:32px;margin:10px 0">{'🌧️' if 'rain' in w['desc'].lower() else '☀️'}</div>
+                      <div style="font-size:11px;color:#4B6080;margin-bottom:4px">{c.get('location','Unknown')[:38]}</div>
+                      <div style="font-size:10px;color:#334155">🌐 {lat:.4f}, {lon:.4f}</div>
+                      <div style="font-size:32px;margin:10px 0">{weather_icon}</div>
                       <div style="font-size:26px;font-weight:900;color:#3B82F6;font-family:Outfit">{w['temp']}°C</div>
                       <div style="font-size:12px;color:#94A3B8">{w['desc']}</div>
                       <div style="font-size:11px;color:#4B6080;margin-top:6px">💧{w['humidity']}% · 💨{w['wind']}km/h</div>
-                      <div style="margin-top:10px;background:{rclr}20;border-radius:20px;
+                      <div style="margin-top:6px;font-size:11px;color:{sev_clr};font-weight:700">⚠️ {sev} Pothole</div>
+                      <div style="margin-top:6px;background:{rclr}20;border-radius:20px;
                                   padding:3px 10px;font-size:11px;font-weight:700;color:{rclr};display:inline-block">{rsk}</div>
                     </div>""", unsafe_allow_html=True)
     else:
-        st.info("🌤️ Weather data appears for critical pothole locations after detection")
+        st.info("🌤️ Weather data appears for pothole locations after detection")
 
 
 # ═══════════════════════════════ ALERTS ═══════════════════════════════════════
@@ -1308,7 +1353,7 @@ with t_chat:
 
 # ═══════════════════════════════ REPORTS ══════════════════════════════════════
 with t_rep:
-    st.markdown(f"#### 📋 All Reports — {len(complaints)} records")
+    st.markdown(f"#### 🇮🇳 All India Report — {len(complaints)} records")
     if complaints:
         srch = st.text_input("Search…", label_visibility="collapsed",
                              placeholder="🔍  Search by ID, location, district, road…")
