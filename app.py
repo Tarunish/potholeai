@@ -15,6 +15,12 @@ except ImportError:
     DETECT_OK = False
 
 try:
+    import cv2
+    CV2_OK = True
+except ImportError:
+    CV2_OK = False
+
+try:
     from PIL import Image
     PIL_OK = True
 except ImportError:
@@ -740,36 +746,122 @@ function g(){
     # Upload + Detect
     upload_label = "📸 Report Pothole" if role=="Public" else "📤 Run Detection"
     st.markdown(f"#### {upload_label}")
-    uploaded = st.file_uploader("Road image", type=["jpg","jpeg","png"],
-                                label_visibility="collapsed")
-    if uploaded:
-        os.makedirs("output", exist_ok=True)
-        with open("pothole.jpg","wb") as f:
-            f.write(uploaded.getbuffer())
-        st.success("✅ Image ready")
-        if st.button("🔍 Detect & Submit", use_container_width=True):
-            if DETECT_OK:
-                with st.spinner("Running YOLOv11…"):
-                    detect("pothole.jpg")
-                    time.sleep(0.5)
-                try:
-                    with open("output/complaints.json") as f:
-                        raw = f.read().strip()
-                    st.session_state.complaints = json.loads(raw) if raw else []
-                except Exception:
-                    st.session_state.complaints = []
-                if "device_gps" in st.session_state:
-                    g = st.session_state["device_gps"]
-                    for c in st.session_state.complaints:
-                        if c.get("gps"): c["gps"]["lat"]=g["lat"]; c["gps"]["lon"]=g["lon"]
-                db_save(st.session_state.complaints)
-                st.session_state.det_img  = "output/detected.jpg"
-                st.session_state.auto_on  = True
-                st.session_state.last_cycle = datetime.now().isoformat()
-                st.success(f"✅ {len(st.session_state.complaints)} potholes detected & saved!")
-                st.rerun()
-            else:
-                st.error("Detection model unavailable")
+
+    detect_mode = st.radio(
+        "Input type", ["🖼️ Image", "🎥 Video"],
+        horizontal=True, label_visibility="collapsed"
+    )
+
+    if detect_mode == "🖼️ Image":
+        uploaded = st.file_uploader("Road image", type=["jpg","jpeg","png"],
+                                    label_visibility="collapsed")
+        if uploaded:
+            os.makedirs("output", exist_ok=True)
+            with open("pothole.jpg","wb") as f:
+                f.write(uploaded.getbuffer())
+            st.success("✅ Image ready")
+            if st.button("🔍 Detect & Submit", use_container_width=True):
+                if DETECT_OK:
+                    with st.spinner("Running YOLOv11…"):
+                        detect("pothole.jpg")
+                        time.sleep(0.5)
+                    try:
+                        with open("output/complaints.json") as f:
+                            raw = f.read().strip()
+                        st.session_state.complaints = json.loads(raw) if raw else []
+                    except Exception:
+                        st.session_state.complaints = []
+                    if "device_gps" in st.session_state:
+                        g = st.session_state["device_gps"]
+                        for c in st.session_state.complaints:
+                            if c.get("gps"): c["gps"]["lat"]=g["lat"]; c["gps"]["lon"]=g["lon"]
+                    db_save(st.session_state.complaints)
+                    st.session_state.det_img  = "output/detected.jpg"
+                    st.session_state.auto_on  = True
+                    st.session_state.last_cycle = datetime.now().isoformat()
+                    st.success(f"✅ {len(st.session_state.complaints)} potholes detected & saved!")
+                    st.rerun()
+                else:
+                    st.error("❌ Detection unavailable — ensure ultralytics, opencv & best.pt are installed")
+
+    else:  # Video mode
+        uploaded_vid = st.file_uploader("Road video", type=["mp4","avi","mov","mkv"],
+                                        label_visibility="collapsed")
+        frame_skip = st.slider("Analyze every Nth frame", 10, 60, 24,
+                               help="Lower = more thorough but slower")
+        if uploaded_vid:
+            os.makedirs("output", exist_ok=True)
+            vid_path = "output/upload_video.mp4"
+            with open(vid_path, "wb") as f:
+                f.write(uploaded_vid.getbuffer())
+            st.success(f"✅ Video ready: {uploaded_vid.name}")
+            if st.button("🎥 Detect from Video", use_container_width=True):
+                if not DETECT_OK:
+                    st.error("❌ Detection unavailable — ensure ultralytics, opencv & best.pt are installed")
+                elif not CV2_OK:
+                    st.error("❌ opencv-python-headless not installed")
+                else:
+                    prog_bar = st.progress(0, text="Extracting frames…")
+                    cap = cv2.VideoCapture(vid_path)
+                    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                    fps = cap.get(cv2.CAP_PROP_FPS) or 25
+                    frame_idx = 0
+                    saved_frames = 0
+                    video_complaints = []
+
+                    while True:
+                        ret, frame = cap.read()
+                        if not ret:
+                            break
+                        if frame_idx % frame_skip == 0:
+                            frame_file = f"output/vframe_{saved_frames:04d}.jpg"
+                            cv2.imwrite(frame_file, frame)
+                            try:
+                                detect(frame_file)
+                                with open("output/complaints.json") as cf:
+                                    raw = cf.read().strip()
+                                frame_complaints = json.loads(raw) if raw else []
+                                # Tag each complaint with video timestamp
+                                ts = round(frame_idx / fps, 1)
+                                for c in frame_complaints:
+                                    c["video_timestamp_sec"] = ts
+                                    c["source"] = f"VIDEO:{uploaded_vid.name}@{ts}s"
+                                video_complaints.extend(frame_complaints)
+                                # Reset for next frame
+                                with open("output/complaints.json","w") as cf:
+                                    cf.write("[]")
+                            except Exception as ve:
+                                pass
+                            saved_frames += 1
+                            pct = min(int((frame_idx / max(total_frames,1)) * 100), 99)
+                            prog_bar.progress(pct, text=f"Frame {frame_idx}/{total_frames} — {len(video_complaints)} potholes found")
+                        frame_idx += 1
+
+                    cap.release()
+                    prog_bar.progress(100, text="✅ Done!")
+
+                    # Deduplicate by pothole_id
+                    seen = set()
+                    unique = []
+                    for c in video_complaints:
+                        if c["pothole_id"] not in seen:
+                            seen.add(c["pothole_id"])
+                            unique.append(c)
+
+                    if unique:
+                        st.session_state.complaints.extend(unique)
+                        # Apply device GPS if available
+                        if "device_gps" in st.session_state:
+                            g = st.session_state["device_gps"]
+                            for c in st.session_state.complaints:
+                                if c.get("gps"): c["gps"]["lat"]=g["lat"]; c["gps"]["lon"]=g["lon"]
+                        db_save(st.session_state.complaints)
+                        st.session_state.auto_on = True
+                        st.session_state.last_cycle = datetime.now().isoformat()
+                        st.success(f"✅ {len(unique)} potholes detected from video ({saved_frames} frames scanned)!")
+                        st.rerun()
+                    else:
+                        st.warning("No potholes detected in video. Try a lower frame skip value.")
 
     # Auto-load from DB only if user explicitly uploaded before (check db_loaded flag)
     # Do NOT auto-load on fresh login to avoid showing stale/fake data
@@ -874,7 +966,7 @@ st.markdown("<hr style='border:1px solid #162035;margin:10px 0 14px'>", unsafe_a
 
 
 # ── TABS ──────────────────────────────────────────────────────────────────────
-TAB_NAMES = ["🗺️ Map","📊 Analytics","🌤️ Weather","🔔 Alerts","🤖 Auto Log","💬 AI Chat","📋 Reports","📸 Instagram"]
+TAB_NAMES = ["🗺️ Map","📊 Analytics","🌤️ Weather","🔔 Alerts","🤖 Auto Log","💬 AI Chat","🇮🇳 All India Report","📸 Instagram"]
 t_map, t_an, t_wx, t_al, t_log, t_chat, t_rep, t_ig = st.tabs(TAB_NAMES)
 
 
@@ -1144,26 +1236,177 @@ with t_chat:
 
 # ═══════════════════════════════ REPORTS ══════════════════════════════════════
 with t_rep:
-    st.markdown(f"#### 📋 All Reports — {len(complaints)} records")
-    if complaints:
-        srch = st.text_input("Search…", label_visibility="collapsed",
-                             placeholder="🔍  Search by ID, location, district, road…")
-        filt = [c for c in complaints if not srch or
-                srch.lower() in (str(c.get("pothole_id",""))+str(c.get("location",""))+
-                                  str(c.get("district",""))+str(c.get("road",""))).lower()]
+    from collections import Counter
+
+    st.markdown("## 🇮🇳 All India Pothole Report")
+    st.caption(f"Comprehensive road damage intelligence across all states & UTs · {len(all_c)} total records")
+
+    if all_c:
+        # ── Summary KPIs ─────────────────────────────────────────────────────
+        st.markdown("### 📊 National Summary")
+        k1,k2,k3,k4,k5,k6 = st.columns(6)
+        states_count = len(set(c.get("state","") for c in all_c if c.get("state") and c.get("state") != "India"))
+        repair_rate  = round((repaired / total * 100) if total else 0, 1)
+        avg_conf     = round(sum((c.get("confidence") or 0) for c in all_c) / max(len(all_c),1) * 100, 1)
+        for col, ico, lbl, val, clr in [
+            (k1,"🚧","Total Potholes", total,        "#3B82F6"),
+            (k2,"🔴","Critical",       critical,     "#EF4444"),
+            (k3,"✅","Repair Rate",    f"{repair_rate}%", "#10B981"),
+            (k4,"🗺️","States Covered", states_count, "#06B6D4"),
+            (k5,"🎯","Avg Confidence", f"{avg_conf}%","#F59E0B"),
+            (k6,"🚨","Escalated",      escalated,    "#F59E0B"),
+        ]:
+            with col:
+                col.markdown(f"""
+                <div style="background:#0D1525;border:1px solid #162035;border-radius:12px;
+                            padding:14px 10px;text-align:center">
+                  <div style="font-size:11px;color:#334155;letter-spacing:0.5px">{ico} {lbl}</div>
+                  <div style="font-size:22px;font-weight:900;color:{clr};font-family:Outfit;line-height:1.3">{val}</div>
+                </div>""", unsafe_allow_html=True)
+
+        st.markdown("<hr style='border:1px solid #162035;margin:16px 0'>", unsafe_allow_html=True)
+
+        # ── State-wise Breakdown ─────────────────────────────────────────────
+        st.markdown("### 🗺️ State-wise Breakdown")
+        state_data = {}
+        for c in all_c:
+            st8 = c.get("state") or "Unknown"
+            if st8 not in state_data:
+                state_data[st8] = {"total":0,"critical":0,"moderate":0,"minor":0,
+                                   "filed":0,"escalated":0,"repaired":0}
+            state_data[st8]["total"] += 1
+            state_data[st8][c.get("severity","minor").lower()] = state_data[st8].get(c.get("severity","minor").lower(),0) + 1
+            state_data[st8][c.get("status","filed").lower()]   = state_data[st8].get(c.get("status","filed").lower(),0)   + 1
+
+        sorted_states = sorted(state_data.items(), key=lambda x: x[1]["total"], reverse=True)
+
+        if sorted_states and PLOTLY_OK:
+            import plotly.graph_objects as go2
+            sr1, sr2 = st.columns(2)
+            with sr1:
+                top_states = sorted_states[:15]
+                fig_s = go.Figure(go.Bar(
+                    y=[s for s,_ in top_states],
+                    x=[d["total"] for _,d in top_states],
+                    orientation="h",
+                    marker_color=["#EF4444" if d["critical"]>5 else "#F59E0B" if d["critical"]>2 else "#3B82F6" for _,d in top_states],
+                    text=[d["total"] for _,d in top_states],
+                    textposition="outside",
+                ))
+                fig_s.update_layout(
+                    title="Top States by Pothole Count",
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font_color="#E2E8F0", height=420, margin=dict(l=0,r=40,t=36,b=0),
+                    yaxis=dict(autorange="reversed"), xaxis=dict(showgrid=False)
+                )
+                st.plotly_chart(fig_s, use_container_width=True)
+
+            with sr2:
+                crit_states = sorted(state_data.items(), key=lambda x: x[1].get("critical",0), reverse=True)[:10]
+                fig_c = go.Figure(go.Bar(
+                    x=[s for s,_ in crit_states],
+                    y=[d.get("critical",0) for _,d in crit_states],
+                    marker_color="#EF4444",
+                    text=[d.get("critical",0) for _,d in crit_states],
+                    textposition="outside",
+                ))
+                fig_c.update_layout(
+                    title="Critical Potholes by State",
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font_color="#E2E8F0", height=420, margin=dict(l=0,r=0,t=36,b=0),
+                    xaxis=dict(tickangle=-30), yaxis=dict(showgrid=False)
+                )
+                st.plotly_chart(fig_c, use_container_width=True)
+
+        # State table
+        st.markdown("#### 📋 State-wise Table")
+        header_cols = st.columns([2.5,1,1,1,1,1,1])
+        for col, lbl in zip(header_cols, ["State","Total","Critical","Moderate","Filed","Escalated","Repaired"]):
+            col.markdown(f"<div style='color:#4B6080;font-size:11px;font-weight:700;letter-spacing:0.5px'>{lbl}</div>", unsafe_allow_html=True)
+        st.markdown("<hr style='border:1px solid #162035;margin:4px 0 8px'>", unsafe_allow_html=True)
+
+        for st8, d in sorted_states[:30]:
+            row = st.columns([2.5,1,1,1,1,1,1])
+            crit_clr = "#EF4444" if d.get("critical",0) > 5 else "#F59E0B" if d.get("critical",0) > 2 else "#10B981"
+            row[0].markdown(f"<div style='font-size:13px;font-weight:600'>🗺️ {st8}</div>", unsafe_allow_html=True)
+            row[1].markdown(f"<div style='color:#3B82F6;font-weight:700'>{d['total']}</div>", unsafe_allow_html=True)
+            row[2].markdown(f"<div style='color:{crit_clr};font-weight:700'>{d.get('critical',0)}</div>", unsafe_allow_html=True)
+            row[3].markdown(f"<div style='color:#F59E0B'>{d.get('moderate',0)}</div>", unsafe_allow_html=True)
+            row[4].markdown(f"<div style='color:#3B82F6'>{d.get('filed',0)}</div>", unsafe_allow_html=True)
+            row[5].markdown(f"<div style='color:#F59E0B'>{d.get('escalated',0)}</div>", unsafe_allow_html=True)
+            row[6].markdown(f"<div style='color:#10B981'>{d.get('repaired',0)}</div>", unsafe_allow_html=True)
+
+        st.markdown("<hr style='border:1px solid #162035;margin:16px 0'>", unsafe_allow_html=True)
+
+        # ── District Hotspots ────────────────────────────────────────────────
+        st.markdown("### 🔥 District Hotspots (Top 20)")
+        dist_counts = Counter(c.get("district","Unknown") for c in all_c).most_common(20)
+        if dist_counts and PLOTLY_OK:
+            fig_d = go.Figure(go.Bar(
+                y=[d for d,_ in dist_counts],
+                x=[n for _,n in dist_counts],
+                orientation="h",
+                marker=dict(
+                    color=[n for _,n in dist_counts],
+                    colorscale=[[0,"#1E3A5F"],[0.5,"#2563EB"],[1,"#EF4444"]],
+                    showscale=False,
+                ),
+                text=[n for _,n in dist_counts],
+                textposition="outside",
+            ))
+            fig_d.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                font_color="#E2E8F0", height=500, margin=dict(l=0,r=50,t=10,b=0),
+                yaxis=dict(autorange="reversed"), xaxis=dict(showgrid=False)
+            )
+            st.plotly_chart(fig_d, use_container_width=True)
+
+        st.markdown("<hr style='border:1px solid #162035;margin:16px 0'>", unsafe_allow_html=True)
+
+        # ── Searchable Full Records ──────────────────────────────────────────
+        st.markdown(f"### 📄 All Records ({len(complaints)} shown)")
+
+        rep1, rep2, rep3 = st.columns([3,1,1])
+        with rep1:
+            srch = st.text_input("Search…", label_visibility="collapsed",
+                                 placeholder="🔍  Search by ID, location, state, district, road…")
+        with rep2:
+            state_filter = st.selectbox(
+                "State", ["All States"] + sorted(set(c.get("state","Unknown") for c in all_c if c.get("state"))),
+                label_visibility="collapsed"
+            )
+        with rep3:
+            sev_filter = st.selectbox("Severity", ["All","Critical","Moderate","Minor"],
+                                      label_visibility="collapsed")
+
+        filt = complaints
+        if srch:
+            filt = [c for c in filt if srch.lower() in (
+                str(c.get("pothole_id",""))+str(c.get("location",""))+
+                str(c.get("district",""))+str(c.get("road",""))+str(c.get("state",""))
+            ).lower()]
+        if state_filter != "All States":
+            filt = [c for c in filt if c.get("state","") == state_filter]
+        if sev_filter != "All":
+            filt = [c for c in filt if c.get("severity","") == sev_filter]
+
+        st.caption(f"{len(filt)} matching records")
 
         SC = {"Critical":"#EF4444","Moderate":"#F59E0B","Minor":"#10B981"}
         ST = {"Repaired":"#10B981","Escalated":"#F59E0B","Filed":"#3B82F6"}
-        for c in filt[:60]:
-            sclr = SC.get(c.get("severity","Minor"),"#888")
+
+        for c in filt[:80]:
+            sclr  = SC.get(c.get("severity","Minor"),"#888")
             stclr = ST.get(c.get("status","Filed"),"#888")
+            src_badge = f'<span style="background:rgba(16,185,129,0.12);color:#10B981;border-radius:20px;padding:1px 9px;font-size:10px">VIDEO</span>' if "VIDEO:" in str(c.get("source","")) else '<span style="background:rgba(37,99,235,0.12);color:#3B82F6;border-radius:20px;padding:1px 9px;font-size:10px">IMAGE</span>'
             st.markdown(f"""
             <div class="c c-b">
-              <span style="font-weight:800;color:#3B82F6">{c.get('pothole_id','—')}</span>
-              &nbsp;<span style="background:rgba(37,99,235,0.12);color:#3B82F6;
-                                 border-radius:20px;padding:1px 9px;font-size:10px">AUTO</span><br>
-              📍 {c.get('location','—')} · 🛣️ {c.get('highway_km','—')}<br>
-              ⚠️ <b style="color:{sclr}">{c.get('severity','—')}</b>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-weight:800;color:#3B82F6">{c.get('pothole_id','—')}</span>
+                {src_badge}
+              </div>
+              📍 {c.get('location','—')}&nbsp;·&nbsp;🗺️ <b style="color:#06B6D4">{c.get('state','—')}</b>&nbsp;·&nbsp;🏙️ {c.get('district','—')}<br>
+              🛣️ {c.get('road','—')}&nbsp;·&nbsp;⚠️ <b style="color:{sclr}">{c.get('severity','—')}</b>
               &nbsp;·&nbsp; 🎯 {int((c.get('confidence') or 0)*100)}%
               &nbsp;·&nbsp; <b style="color:{stclr}">{c.get('status','—')}</b><br>
               <span style="color:#334155;font-size:11px">
@@ -1173,14 +1416,15 @@ with t_rep:
               </span>
             </div>""", unsafe_allow_html=True)
 
-        if len(filt) > 60:
-            st.info(f"Showing 60 of {len(filt)}. Use search to narrow results.")
+        if len(filt) > 80:
+            st.info(f"Showing 80 of {len(filt)}. Use filters/search to narrow results.")
+
     else:
         st.markdown("""
         <div style="text-align:center;padding:64px;background:#0D1525;border-radius:16px;border:1px solid #162035">
-          <div style="font-size:60px;margin-bottom:16px">🚧</div>
-          <h3 style="color:#3B82F6">No Reports Yet</h3>
-          <p style="color:#334155;font-size:14px">Upload a road photo and run detection to get started</p>
+          <div style="font-size:60px;margin-bottom:16px">🇮🇳</div>
+          <h3 style="color:#3B82F6">No India-wide Data Yet</h3>
+          <p style="color:#334155;font-size:14px">Upload a road photo or video and run detection to populate the All India report</p>
         </div>""", unsafe_allow_html=True)
 
 
