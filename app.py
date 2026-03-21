@@ -1094,6 +1094,55 @@ with t_map:
               <div style="color:#334155;font-size:15px">Upload a road image<br>and run detection to see the live map</div>
             </div>""", unsafe_allow_html=True)
 
+        # ── Safe Navigation (visible to all, especially Public users) ─────────
+        st.markdown("#### 🧭 Safe Navigation")
+        st.markdown("""
+        <div style="background:#0D1525;border:1px solid #162035;border-radius:12px;padding:14px;margin-bottom:8px">
+          <div style="color:#3B82F6;font-size:13px;font-weight:700;margin-bottom:6px">🚗 Pothole-Aware Route Planner</div>
+          <div style="color:#4B6080;font-size:12px">Navigate safely — potholes on your route are highlighted as warnings</div>
+        </div>""", unsafe_allow_html=True)
+
+        nav_c1, nav_c2 = st.columns(2)
+        with nav_c1:
+            nav_from = st.text_input("📍 From", placeholder="e.g. Mumbai", key="nav_from")
+        with nav_c2:
+            nav_to   = st.text_input("🏁 To",   placeholder="e.g. Pune",   key="nav_to")
+
+        if st.button("🚀 Open Safe Navigation Map", use_container_width=True):
+            # Build query params for map.html
+            params = ""
+            if nav_from and nav_to:
+                params = f"?from={_parse.quote(nav_from)}&to={_parse.quote(nav_to)}"
+            map_url = f"map.html{params}"
+            st.markdown(f"""
+            <div style="background:#0B1120;border:1px solid #162035;border-radius:10px;padding:14px;margin-top:8px">
+              <div style="color:#10B981;font-size:13px;font-weight:700">✅ Open the navigation map:</div>
+              <a href="{map_url}" target="_blank"
+                 style="display:block;margin-top:8px;background:linear-gradient(135deg,#28a745,#20c997);
+                        color:#fff;text-align:center;padding:10px;border-radius:8px;
+                        font-weight:700;font-size:14px;text-decoration:none">
+                🗺️ Launch Pothole Navigation →
+              </a>
+              <div style="color:#334155;font-size:11px;margin-top:8px">
+                ⚠️ Potholes on your route are shown as red warning markers
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+        # Quick warning for public users
+        if role == "Public" and all_c:
+            critical_near = [c for c in all_c if c.get("severity") == "Critical"][:3]
+            if critical_near:
+                st.markdown("#### ⚠️ Critical Potholes Nearby")
+                for c in critical_near:
+                    st.markdown(f"""
+                    <div style="background:#EF444410;border-left:3px solid #EF4444;
+                                border-radius:8px;padding:8px 12px;margin:4px 0;font-size:12px">
+                      🔴 <b style="color:#EF4444">{c.get('severity','')}</b> —
+                      {c.get('location','Unknown')[:50]}<br>
+                      <span style="color:#4B6080">📅 {(c.get('complaint_filed_at') or '')[:10]}
+                      · Status: {c.get('status','')}</span>
+                    </div>""", unsafe_allow_html=True)
+
     with mc2:
         st.markdown("#### 📸 Detected Image")
         if st.session_state.det_img and os.path.exists(st.session_state.det_img):
